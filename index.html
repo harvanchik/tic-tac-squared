@@ -556,12 +556,14 @@
       <h1>Tic Tac Squared</h1>
       <div class="game-info">
         <div class="player player-x active">
-          <i class="fas fa-user"></i> Player (X)
+          <i class="fas fa-times fa-lg"></i> HUMAN <i class="fas fa-user"></i>
         </div>
         <div id="aiThinking" class="ai-thinking">
           AI thinking... <i class="fas fa-cog fa-spin"></i>
         </div>
-        <div class="player player-o"><i class="fas fa-robot"></i> AI (O)</div>
+        <div class="player player-o">
+          <i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>
+        </div>
       </div>
     </header>
 
@@ -934,9 +936,11 @@
 
           // Update UI before restoring other state variables
           if (gameSettings.gameMode === 'ai') {
-            playerODisplay.innerHTML = '<i class="fas fa-robot"></i> AI (O)';
+            playerODisplay.innerHTML =
+              '<i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>';
           } else {
-            playerODisplay.innerHTML = '<i class="fas fa-user"></i> Player (O)';
+            playerODisplay.innerHTML =
+              '<i class="fas fa-user"></i> Player <i class="far fa-circle"></i>';
           }
 
           // Restore game state variables
@@ -985,7 +989,7 @@
             // Add cell content if occupied
             if (boards[i][j] === 'x') {
               cell.classList.add('x', 'occupied');
-              cell.innerHTML = '<i class="fas fa-times"></i>';
+              cell.innerHTML = '<i class="fas fa-times fa-lg"></i>';
             } else if (boards[i][j] === 'o') {
               cell.classList.add('o', 'occupied');
               cell.innerHTML = '<i class="far fa-circle"></i>';
@@ -1122,9 +1126,11 @@
 
         // Update player icons based on game mode
         if (gameSettings.gameMode === 'ai') {
-          playerODisplay.innerHTML = '<i class="fas fa-robot"></i> AI (O)';
+          playerODisplay.innerHTML =
+            '<i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>';
         } else {
-          playerODisplay.innerHTML = '<i class="fas fa-user"></i> Player (O)';
+          playerODisplay.innerHTML =
+            '<i class="fas fa-user"></i> Player <i class="far fa-circle"></i>';
         }
 
         // Hide game over screen
@@ -1186,7 +1192,9 @@
           currentPlayer === 'o' &&
           gameSettings.gameMode === 'ai'
         ) {
-          setTimeout(() => aiMakeMove(), 500);
+          setTimeout(function () {
+            aiMakeMove();
+          }, 500);
         }
       }
 
@@ -1202,7 +1210,7 @@
         cell.classList.add(player, 'occupied');
         cell.innerHTML =
           player === 'x'
-            ? '<i class="fas fa-times"></i>'
+            ? '<i class="fas fa-times fa-lg"></i>'
             : '<i class="far fa-circle"></i>';
 
         // Check if this board has a winner
@@ -1891,9 +1899,11 @@
 
         // Update player O display based on the game mode
         if (gameSettings.gameMode === 'ai') {
-          playerODisplay.innerHTML = '<i class="fas fa-robot"></i> AI (O)';
+          playerODisplay.innerHTML =
+            '<i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>';
         } else {
-          playerODisplay.innerHTML = '<i class="fas fa-user"></i> Player (O)';
+          playerODisplay.innerHTML =
+            '<i class="fas fa-user"></i> HUMAN <i class="far fa-circle"></i>';
         }
 
         // Save the updated game state
@@ -1930,14 +1940,14 @@
             coinResult.innerHTML =
               'Player <span style="color: ' +
               gameSettings.xColor +
-              '">X</span> goes first!';
+              '"><i class="fas fa-times fa-lg"></i></span> goes first!';
           } else {
             coin.textContent = 'O';
             coin.style.color = gameSettings.oColor;
             coinResult.innerHTML =
-              'Player <span style="color: ' +
+              'HUMAN <span style="color: ' +
               gameSettings.oColor +
-              '">O</span> goes first!';
+              '"><i class="far fa-circle"></i></span> goes first!';
           }
 
           // Update player display
