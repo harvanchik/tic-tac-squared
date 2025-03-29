@@ -1163,6 +1163,9 @@
         // Only proceed if game is active
         if (!gameActive) return;
 
+        // Prevent human from making a move on AI's turn
+        if (currentPlayer === 'o' && gameSettings.gameMode === 'ai') return;
+
         const cell = event.currentTarget;
         const boardIndex = parseInt(cell.dataset.board);
         const cellIndex = parseInt(cell.dataset.cell);
@@ -1343,7 +1346,7 @@
         }
       }
 
-      // Draw winning line on a board
+      // Draw winning line on a board - fixed positioning for better centering
       function drawWinningLine(boardIndex, combo) {
         const board = document.querySelector(
           `.board[data-index="${boardIndex}"]`,
@@ -1361,21 +1364,26 @@
         // Calculate start and end points
         let startX, startY, endX, endY;
 
-        // For rows
+        // For rows - ensure horizontal lines are centered vertically in each row
         if (aRow === cRow) {
-          startX = cellSize * 0.1; // Small offset from the left edge
-          startY = (aRow + 0.5) * cellSize - 5; // Shifted up more significantly
-          endX = boardRect.width - cellSize * 0.1 - 6; // Small offset from the right edge
+          startX = cellSize * 0.1; // Small offset from left edge
+
+          // Calculate the exact center of the row
+          startY = aRow * cellSize + cellSize / 2;
+
+          endX = boardRect.width - cellSize * 0.1; // Small offset from right edge
           endY = startY;
         }
-        // For columns
+        // For columns - ensure vertical lines are centered horizontally in each column
         else if (aCol === cCol) {
-          startX = (aCol + 0.5) * cellSize; // Centered horizontally
-          startY = cellSize * 0.1 - 2; // Shifted up at top
+          // Calculate the exact center of the column
+          startX = aCol * cellSize + cellSize / 2;
+
+          startY = cellSize * 0.1; // Small offset from top edge
           endX = startX;
-          endY = boardRect.height - cellSize * 0.1 - 8; // Shifted up at bottom
+          endY = boardRect.height - cellSize * 0.1; // Small offset from bottom edge
         }
-        // For diagonals
+        // For diagonals - keep the current implementation as requested
         else {
           if (a === 0 || c === 0) {
             // Top-left to bottom-right diagonal
@@ -1398,7 +1406,7 @@
         line.style.width = `${Math.sqrt(
           Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2),
         )}px`;
-        line.style.height = '4px'; // Slightly thinner line for better aesthetics
+        line.style.height = '4px'; // line thickness
         line.style.left = `${startX}px`;
         line.style.top = `${startY}px`;
         line.style.transform = `rotate(${Math.atan2(endY - startY, endX - startX)}rad)`;
