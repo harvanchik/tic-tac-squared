@@ -378,32 +378,75 @@
       .coin {
         width: 100px;
         height: 100px;
-        background-color: #ffd700;
-        border-radius: 50%;
         margin: 20px auto;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 2rem;
-        font-weight: bold;
         position: relative;
         transform-style: preserve-3d;
-        transition: transform 1s ease-out;
+        transition: transform 0.1s;
       }
 
       .coin.flipping {
-        animation: flip-coin 1.5s ease-out;
+        animation: flip-coin 1.5s ease-out forwards;
+      }
+
+      .coin-side {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        backface-visibility: hidden;
+        font-size: 2.5rem;
+        font-weight: bold;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      }
+
+      .coin-side.heads {
+        background: linear-gradient(45deg, #ffd700, #ffcc00);
+        border: 4px solid #e6b800;
+        color: var(--x-color);
+        z-index: 2;
+      }
+
+      .coin-side.tails {
+        background: linear-gradient(45deg, #ffd700, #ffcc00);
+        border: 4px solid #e6b800;
+        color: var(--o-color);
+        transform: rotateY(180deg);
+      }
+
+      input[type='color']::-moz-color-swatch {
+        border: none;
+      }
+
+      input[type='color']::-webkit-color-swatch-wrapper {
+        padding: 0;
+        border-radius: 0;
+      }
+
+      input[type='color']::-webkit-color-swatch {
+        border: none;
       }
 
       @keyframes flip-coin {
         0% {
-          transform: rotateY(0);
+          transform: rotateY(0) rotateX(0);
         }
-        50% {
-          transform: rotateY(1800deg);
+        20% {
+          transform: rotateY(180deg) rotateX(720deg);
+        }
+        40% {
+          transform: rotateY(360deg) rotateX(1440deg);
+        }
+        60% {
+          transform: rotateY(540deg) rotateX(2160deg);
+        }
+        80% {
+          transform: rotateY(720deg) rotateX(2880deg);
         }
         100% {
-          transform: rotateY(3600deg);
+          transform: rotateY(900deg) rotateX(3600deg);
         }
       }
 
@@ -418,6 +461,14 @@
         justify-content: center;
         align-items: center;
         z-index: 400;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+
+      .color-picker-modal.show {
+        opacity: 1;
+        pointer-events: all;
       }
 
       .color-picker-content {
@@ -646,21 +697,45 @@
           <div class="color-picker">
             <div class="color-option">
               <label>X Color</label>
-              <div
+              <input
+                type="color"
                 id="xColorPicker"
-                class="color-box selected"
+                class="color-box"
                 data-player="x"
-                data-color="#ff4757"
-                style="background-color: #ff4757"></div>
+                value="#ff4757"
+                style="
+                  background-color: transparent;
+                  border: 0;
+                  width: 30px;
+                  height: 30px;
+                  border-radius: 50%;
+                  cursor: pointer;
+                  appearance: none;
+                  -webkit-appearance: none;
+                  padding: 0;
+                  overflow: hidden;
+                " />
             </div>
             <div class="color-option">
               <label>O Color</label>
-              <div
+              <input
+                type="color"
                 id="oColorPicker"
-                class="color-box selected"
+                class="color-box"
                 data-player="o"
-                data-color="#1e90ff"
-                style="background-color: #1e90ff"></div>
+                value="#1e90ff"
+                style="
+                  background-color: transparent;
+                  border: 0;
+                  width: 30px;
+                  height: 30px;
+                  border-radius: 50%;
+                  cursor: pointer;
+                  appearance: none;
+                  -webkit-appearance: none;
+                  padding: 0;
+                  overflow: hidden;
+                " />
             </div>
           </div>
         </div>
@@ -680,47 +755,28 @@
       <div class="coin-flip-content">
         <h2>Flip a Coin</h2>
         <p>Determining who goes first...</p>
-        <div class="coin" id="coin">?</div>
-        <div id="coinResult"></div>
-      </div>
-    </div>
-
-    <div class="color-picker-modal" id="colorPickerModal" style="display: none">
-      <div class="color-picker-content">
-        <h2 id="colorPickerTitle">Select Color</h2>
-        <input
-          type="color"
-          id="colorPickerInput"
-          class="color-picker-input"
-          value="#ff4757" />
-        <div class="color-picker-buttons">
-          <button id="confirmColorBtn">
-            <i class="fas fa-check"></i> Confirm
-          </button>
-          <button id="cancelColorBtn">
-            <i class="fas fa-times"></i> Cancel
-          </button>
+        <div class="coin" id="coin">
+          <div class="coin-side heads">
+            <i class="fas fa-times fa-2x"></i>
+          </div>
+          <div class="coin-side tails">
+            <i class="far fa-circle fa-2x"></i>
+          </div>
         </div>
+        <div id="coinResult"></div>
       </div>
     </div>
 
     <div class="how-to-play-modal" id="howToPlayModal">
       <div class="how-to-play-content">
         <div class="how-to-play-header">
-          <h2 class="how-to-play-title">How to Play Tic Tac Squared</h2>
+          <h3 class="how-to-play-title">How to Play</h3>
           <button class="close-how-to-play" id="closeHowToPlay">
             <i class="fas fa-times"></i>
           </button>
         </div>
 
         <div class="how-to-play-body">
-          <h3>Game Overview</h3>
-          <p>
-            Tic Tac Squared is an advanced version of traditional Tic-tac-toe,
-            featuring 9 small boards arranged in a 3×3 grid to form a super
-            board.
-          </p>
-
           <h3>Basic Rules</h3>
           <ul>
             <li>Players take turns marking spaces with X or O.</li>
@@ -761,6 +817,21 @@
         <div class="how-to-play-footer">
           <button id="closeHowToPlayBtn">
             <i class="fas fa-check"></i> Got It
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="color-picker-modal" id="colorPickerModal">
+      <div class="color-picker-content">
+        <h3 id="colorPickerTitle">Select Color</h3>
+        <input type="color" id="colorPickerInput" class="color-picker-input" />
+        <div class="color-picker-buttons">
+          <button id="confirmColorBtn">
+            <i class="fas fa-check"></i> Confirm
+          </button>
+          <button id="cancelColorBtn">
+            <i class="fas fa-times"></i> Cancel
           </button>
         </div>
       </div>
@@ -869,10 +940,14 @@
         playerODisplay.style.color = gameSettings.oColor;
 
         // Update color pickers if they exist
-        if (xColorPicker)
+        if (xColorPicker) {
+          xColorPicker.value = gameSettings.xColor;
           xColorPicker.style.backgroundColor = gameSettings.xColor;
-        if (oColorPicker)
+        }
+        if (oColorPicker) {
+          oColorPicker.value = gameSettings.oColor;
           oColorPicker.style.backgroundColor = gameSettings.oColor;
+        }
 
         // Update existing board outlines for won boards
         document.querySelectorAll('.board.won-x').forEach(board => {
@@ -1130,7 +1205,7 @@
             '<i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>';
         } else {
           playerODisplay.innerHTML =
-            '<i class="fas fa-user"></i> Player <i class="far fa-circle"></i>';
+            '<i class="fas fa-user"></i> HUMAN <i class="far fa-circle"></i>';
         }
 
         // Hide game over screen
@@ -1821,19 +1896,6 @@
         aiDifficultyGroup.style.display =
           gameSettings.gameMode === 'ai' ? 'block' : 'none';
 
-        // Set color pickers
-        document.querySelectorAll('.color-box').forEach(box => {
-          box.classList.remove('selected');
-          if (
-            (box.dataset.player === 'x' &&
-              box.dataset.color === gameSettings.xColor) ||
-            (box.dataset.player === 'o' &&
-              box.dataset.color === gameSettings.oColor)
-          ) {
-            box.classList.add('selected');
-          }
-        });
-
         settingsModal.classList.add('show');
       }
 
@@ -1874,28 +1936,10 @@
           ).value;
         }
 
-        // Find color elements with safety checks
-        const xColorElement = document.querySelector(
-          '.color-box.selected[data-player="x"]',
-        );
-        const oColorElement = document.querySelector(
-          '.color-box.selected[data-player="o"]',
-        );
-
-        // Only update colors if elements exist
-        if (xColorElement && oColorElement) {
-          const selectedXColor = xColorElement.dataset.color;
-          const selectedOColor = oColorElement.dataset.color;
-
-          if (
-            selectedXColor !== gameSettings.xColor ||
-            selectedOColor !== gameSettings.oColor
-          ) {
-            gameSettings.xColor = selectedXColor;
-            gameSettings.oColor = selectedOColor;
-            updateColors();
-          }
-        }
+        // Update game settings
+        gameSettings.xColor = document.getElementById('xColorPicker').value;
+        gameSettings.oColor = document.getElementById('oColorPicker').value;
+        updateColors();
 
         // Update player O display based on the game mode
         if (gameSettings.gameMode === 'ai') {
@@ -1925,8 +1969,8 @@
 
       // Flip a coin to determine who goes first
       function flipCoin() {
+        const coin = document.getElementById('coin');
         coin.classList.add('flipping');
-        coin.textContent = '';
         coinResult.textContent = 'Flipping...';
 
         setTimeout(() => {
@@ -1934,18 +1978,19 @@
           const result = Math.random() < 0.5 ? 'x' : 'o';
           currentPlayer = result;
 
+          // Add a final flip position based on result
+          coin.style.transform =
+            result === 'x' ? 'rotateY(0deg)' : 'rotateY(180deg)';
+
+          // Update result text with proper icon
           if (result === 'x') {
-            coin.textContent = 'X';
-            coin.style.color = gameSettings.xColor;
             coinResult.innerHTML =
               'Player <span style="color: ' +
               gameSettings.xColor +
               '"><i class="fas fa-times fa-lg"></i></span> goes first!';
           } else {
-            coin.textContent = 'O';
-            coin.style.color = gameSettings.oColor;
             coinResult.innerHTML =
-              'HUMAN <span style="color: ' +
+              'Player <span style="color: ' +
               gameSettings.oColor +
               '"><i class="far fa-circle"></i></span> goes first!';
           }
@@ -1971,53 +2016,6 @@
         }
       }
 
-      // Show color picker for player
-      function showColorPicker(player) {
-        currentColorPicker = player;
-        colorPickerTitle.textContent = `Select ${player.toUpperCase()} Color`;
-        colorPickerInput.value = gameSettings[player + 'Color'];
-        colorPickerModal.style.display = 'flex';
-      }
-
-      // Confirm color selection
-      function confirmColor() {
-        const newColor = colorPickerInput.value;
-        const player = currentColorPicker;
-
-        // Update the color box in settings
-        const colorBox = document.querySelector(
-          `.color-box[data-player="${player}"]`,
-        );
-        colorBox.style.backgroundColor = newColor;
-        colorBox.dataset.color = newColor;
-
-        // Deselect all color boxes for this player
-        document
-          .querySelectorAll(`.color-box[data-player="${player}"]`)
-          .forEach(b => {
-            b.classList.remove('selected');
-          });
-
-        // Select this one
-        colorBox.classList.add('selected');
-
-        // Update game settings
-        gameSettings[player + 'Color'] = newColor;
-        updateColors();
-
-        colorPickerModal.style.display = 'none';
-      }
-
-      // Show How to Play modal
-      function showHowToPlay() {
-        document.getElementById('howToPlayModal').classList.add('show');
-      }
-
-      // Hide How to Play modal
-      function hideHowToPlay() {
-        document.getElementById('howToPlayModal').classList.remove('show');
-      }
-
       // Event listeners for buttons
       if (howToPlayBtn) howToPlayBtn.addEventListener('click', showHowToPlay);
       if (closeHowToPlay)
@@ -2039,13 +2037,23 @@
       closeSettings.addEventListener('click', hideSettings);
       cancelSettings.addEventListener('click', hideSettings);
       saveSettings.addEventListener('click', saveGameSettings);
-      confirmColorBtn.addEventListener('click', confirmColor);
-      cancelColorBtn.addEventListener(
-        'click',
-        () => (colorPickerModal.style.display = 'none'),
-      );
-      xColorPicker.addEventListener('click', () => showColorPicker('x'));
-      oColorPicker.addEventListener('click', () => showColorPicker('o'));
+
+      // Update colors when the user selects a new color
+      document
+        .getElementById('xColorPicker')
+        .addEventListener('input', event => {
+          const newColor = event.target.value;
+          gameSettings.xColor = newColor;
+          updateColors();
+        });
+
+      document
+        .getElementById('oColorPicker')
+        .addEventListener('input', event => {
+          const newColor = event.target.value;
+          gameSettings.oColor = newColor;
+          updateColors();
+        });
 
       // Game mode change listener
       humanVsHuman.addEventListener('change', function () {
