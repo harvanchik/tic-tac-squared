@@ -476,47 +476,101 @@
           font-size: 2rem;
         }
       }
+
+      .how-to-play-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--modal-bg);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 200;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+
+      .how-to-play-modal.show {
+        opacity: 1;
+        pointer-events: all;
+      }
+
+      .how-to-play-content {
+        background-color: var(--board-bg);
+        padding: 30px;
+        border-radius: 10px;
+        width: 600px;
+        max-width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      }
+
+      .how-to-play-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .how-to-play-title {
+        font-size: 1.5rem;
+        margin: 0;
+      }
+
+      .close-how-to-play {
+        background: none;
+        border: none;
+        color: var(--text-light);
+        font-size: 1.5rem;
+        cursor: pointer;
+      }
+
+      .how-to-play-body {
+        margin-bottom: 20px;
+      }
+
+      .how-to-play-body h3 {
+        margin-top: 16px;
+        margin-bottom: 8px;
+        color: var(--text-light);
+      }
+
+      .how-to-play-body p,
+      .how-to-play-body li {
+        margin-bottom: 8px;
+        line-height: 1.5;
+      }
+
+      .how-to-play-footer {
+        display: flex;
+        justify-content: center;
+      }
     </style>
   </head>
   <body>
     <header>
       <h1>Tic Tac Squared</h1>
       <div class="game-info">
-        <div class="player player-x">
+        <div class="player player-x active">
           <i class="fas fa-user"></i> Player (X)
+        </div>
+        <div id="aiThinking" class="ai-thinking">
+          AI thinking... <i class="fas fa-cog fa-spin"></i>
         </div>
         <div class="player player-o"><i class="fas fa-robot"></i> AI (O)</div>
       </div>
     </header>
 
-    <div class="super-board" id="superBoard"></div>
-
-    <div class="ai-thinking" id="aiThinking">
-      <i class="fas fa-cog fa-spin"></i> AI is thinking...
-    </div>
-
-    <div class="controls">
-      <button id="resetBtn"><i class="fas fa-redo"></i> Reset Game</button>
-      <button id="settingsBtn"><i class="fas fa-cog"></i> Settings</button>
-      <button id="newGameBtn">
-        <i class="fas fa-plus-circle"></i> New Game
-      </button>
-    </div>
-
-    <div class="game-over" id="gameOver">
-      <div class="game-over-message" id="gameOverMessage"></div>
-      <div class="game-over-buttons">
-        <button id="viewBoardBtn"><i class="fas fa-eye"></i> View Board</button>
-        <button id="playAgainBtn">
-          <i class="fas fa-play"></i> Play Again
-        </button>
-      </div>
-    </div>
+    <div id="superBoard" class="super-board"></div>
 
     <div class="settings-modal" id="settingsModal">
       <div class="settings-content">
         <div class="settings-header">
-          <h2 class="settings-title">Game Settings</h2>
+          <h3 class="settings-title">Game Settings</h3>
           <button class="close-settings" id="closeSettings">
             <i class="fas fa-times"></i>
           </button>
@@ -544,7 +598,7 @@
         </div>
 
         <div class="setting-group">
-          <label class="setting-label">Game Rules:</label>
+          <label class="setting-label">Rules:</label>
           <div class="setting-option">
             <input
               type="radio"
@@ -561,30 +615,6 @@
             <label for="freeRules"
               >Free Play (Move in any board at any time)</label
             >
-          </div>
-        </div>
-
-        <div class="setting-group">
-          <label class="setting-label">Player Colors:</label>
-          <div class="color-picker">
-            <div class="color-option">
-              <div
-                class="color-box selected"
-                style="background-color: #ff4757"
-                data-color="#ff4757"
-                data-player="x"
-                id="xColorPicker"></div>
-              <span>Player (X)</span>
-            </div>
-            <div class="color-option">
-              <div
-                class="color-box selected"
-                style="background-color: #1e90ff"
-                data-color="#1e90ff"
-                data-player="o"
-                id="oColorPicker"></div>
-              <span>Player (O)</span>
-            </div>
           </div>
         </div>
 
@@ -606,6 +636,30 @@
           <div class="setting-option">
             <input type="radio" id="hardAI" name="difficulty" value="hard" />
             <label for="hardAI">Hard (Advanced strategy)</label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">Player Colors:</label>
+          <div class="color-picker">
+            <div class="color-option">
+              <label>X Color</label>
+              <div
+                id="xColorPicker"
+                class="color-box selected"
+                data-player="x"
+                data-color="#ff4757"
+                style="background-color: #ff4757"></div>
+            </div>
+            <div class="color-option">
+              <label>O Color</label>
+              <div
+                id="oColorPicker"
+                class="color-box selected"
+                data-player="o"
+                data-color="#1e90ff"
+                style="background-color: #1e90ff"></div>
+            </div>
           </div>
         </div>
 
@@ -648,13 +702,95 @@
       </div>
     </div>
 
+    <div class="how-to-play-modal" id="howToPlayModal">
+      <div class="how-to-play-content">
+        <div class="how-to-play-header">
+          <h2 class="how-to-play-title">How to Play Tic Tac Squared</h2>
+          <button class="close-how-to-play" id="closeHowToPlay">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="how-to-play-body">
+          <h3>Game Overview</h3>
+          <p>
+            Tic Tac Squared is an advanced version of traditional Tic-tac-toe,
+            featuring 9 small boards arranged in a 3×3 grid to form a super
+            board.
+          </p>
+
+          <h3>Basic Rules</h3>
+          <ul>
+            <li>Players take turns marking spaces with X or O.</li>
+            <li>
+              Win a small board by getting three of your marks in a row
+              (horizontally, vertically, or diagonally).
+            </li>
+            <li>
+              Win the game by winning three small boards in a row on the super
+              board.
+            </li>
+          </ul>
+
+          <h3>Board Selection Rules</h3>
+          <p>
+            <strong>Standard Rules:</strong> Your move sends your opponent to
+            the corresponding board. For example, if you play in the top-right
+            cell of any board, your opponent must play in the top-right board.
+          </p>
+          <p>
+            <strong>Free Play:</strong> Players can play in any non-completed
+            board on their turn.
+          </p>
+
+          <h3>Special Situations</h3>
+          <ul>
+            <li>
+              If you're sent to a board that's already won or tied, you can play
+              in any available board.
+            </li>
+            <li>
+              A tied board (filled with no winner) doesn't count for either
+              player.
+            </li>
+          </ul>
+        </div>
+
+        <div class="how-to-play-footer">
+          <button id="closeHowToPlayBtn">
+            <i class="fas fa-check"></i> Got It
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="howToPlayBtn">
+        <i class="fas fa-question-circle"></i> How to Play
+      </button>
+      <button id="settingsBtn"><i class="fas fa-cog"></i> Settings</button>
+      <button id="newGameBtn">
+        <i class="fas fa-plus-circle"></i> New Game
+      </button>
+    </div>
+
+    <div class="game-over" id="gameOver">
+      <div id="gameOverMessage" class="game-over-message"></div>
+      <div class="game-over-buttons">
+        <button id="playAgainBtn">
+          <i class="fas fa-sync-alt"></i> Play Again
+        </button>
+        <button id="viewBoardBtn"><i class="fas fa-eye"></i> View Board</button>
+      </div>
+    </div>
+
     <script>
       // Game elements
       const superBoard = document.getElementById('superBoard');
       const playerXDisplay = document.querySelector('.player-x');
       const playerODisplay = document.querySelector('.player-o');
       const aiThinking = document.getElementById('aiThinking');
-      const resetBtn = document.getElementById('resetBtn');
+      const howToPlayBtn = document.getElementById('howToPlayBtn');
       const newGameBtn = document.getElementById('newGameBtn');
       const gameOver = document.getElementById('gameOver');
       const gameOverMessage = document.getElementById('gameOverMessage');
@@ -678,6 +814,9 @@
       const cancelColorBtn = document.getElementById('cancelColorBtn');
       const xColorPicker = document.getElementById('xColorPicker');
       const oColorPicker = document.getElementById('oColorPicker');
+      const howToPlayModal = document.getElementById('howToPlayModal');
+      const closeHowToPlay = document.getElementById('closeHowToPlay');
+      const closeHowToPlayBtn = document.getElementById('closeHowToPlayBtn');
 
       // Game state
       let currentPlayer = ''; // x or o (empty before coin flip)
@@ -711,8 +850,255 @@
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
       }
 
-      // Initialize the game
+      // Update colors based on game settings
+      function updateColors() {
+        // Update CSS variables
+        document.documentElement.style.setProperty(
+          '--x-color',
+          gameSettings.xColor,
+        );
+        document.documentElement.style.setProperty(
+          '--o-color',
+          gameSettings.oColor,
+        );
+
+        // Update player displays
+        playerXDisplay.style.color = gameSettings.xColor;
+        playerODisplay.style.color = gameSettings.oColor;
+
+        // Update color pickers if they exist
+        if (xColorPicker)
+          xColorPicker.style.backgroundColor = gameSettings.xColor;
+        if (oColorPicker)
+          oColorPicker.style.backgroundColor = gameSettings.oColor;
+
+        // Update existing board outlines for won boards
+        document.querySelectorAll('.board.won-x').forEach(board => {
+          board.style.borderColor = gameSettings.xColor;
+          board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
+        });
+
+        document.querySelectorAll('.board.won-o').forEach(board => {
+          board.style.borderColor = gameSettings.oColor;
+          board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
+        });
+
+        // Update winning lines
+        document.querySelectorAll('.winning-line').forEach(line => {
+          const board = line.closest('.board');
+          if (board) {
+            // Line is in a specific board
+            const boardIndex = parseInt(board.dataset.index);
+            if (boardWinners[boardIndex] === 'x') {
+              line.style.backgroundColor = gameSettings.xColor;
+            } else if (boardWinners[boardIndex] === 'o') {
+              line.style.backgroundColor = gameSettings.oColor;
+            }
+          } else {
+            // Line is on the super board
+            if (gameWinner === 'x') {
+              line.style.backgroundColor = gameSettings.xColor;
+            } else if (gameWinner === 'o') {
+              line.style.backgroundColor = gameSettings.oColor;
+            }
+          }
+        });
+      }
+
+      // Save game state to localStorage
+      function saveGameState() {
+        const gameState = {
+          currentPlayer,
+          activeBoard,
+          boards,
+          boardWinners,
+          gameWinner,
+          gameActive,
+          winningCombination,
+          gameSettings,
+        };
+
+        localStorage.setItem('ticTacSquaredState', JSON.stringify(gameState));
+      }
+
+      // Update the loadGameState function
+      function loadGameState() {
+        try {
+          const savedState = localStorage.getItem('ticTacSquaredState');
+          if (!savedState) return false;
+
+          const gameState = JSON.parse(savedState);
+
+          // Restore game settings
+          gameSettings = gameState.gameSettings;
+
+          // Update UI before restoring other state variables
+          if (gameSettings.gameMode === 'ai') {
+            playerODisplay.innerHTML = '<i class="fas fa-robot"></i> AI (O)';
+          } else {
+            playerODisplay.innerHTML = '<i class="fas fa-user"></i> Player (O)';
+          }
+
+          // Restore game state variables
+          currentPlayer = gameState.currentPlayer;
+          activeBoard = gameState.activeBoard;
+          boards = gameState.boards;
+          boardWinners = gameState.boardWinners;
+          gameWinner = gameState.gameWinner;
+          gameActive = gameState.gameActive;
+          winningCombination = gameState.winningCombination;
+
+          // Recreate the board UI
+          recreateGameUI();
+
+          // Hide the coin flip modal when loading a saved game
+          coinFlipModal.style.display = 'none';
+
+          return true;
+        } catch (error) {
+          console.error('Error loading saved game:', error);
+          return false;
+        }
+      }
+
+      // Clear saved game state
+      function clearSavedGameState() {
+        localStorage.removeItem('ticTacSquaredState');
+      }
+
+      // Recreate the board UI from the current game state
+      function recreateGameUI() {
+        // Create all boards and cells with current state
+        for (let i = 0; i < 9; i++) {
+          const board = document.createElement('div');
+          board.className = 'board';
+          board.dataset.index = i;
+
+          // Create cells for this board first
+          for (let j = 0; j < 9; j++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.board = i;
+            cell.dataset.cell = j;
+            cell.addEventListener('click', handleCellClick);
+
+            // Add cell content if occupied
+            if (boards[i][j] === 'x') {
+              cell.classList.add('x', 'occupied');
+              cell.innerHTML = '<i class="fas fa-times"></i>';
+            } else if (boards[i][j] === 'o') {
+              cell.classList.add('o', 'occupied');
+              cell.innerHTML = '<i class="far fa-circle"></i>';
+            }
+
+            board.appendChild(cell);
+          }
+
+          // Now that cells exist, add board winner class and fade cells if applicable
+          if (boardWinners[i] === 'x') {
+            board.classList.add('won-x');
+            board.style.borderColor = gameSettings.xColor;
+            board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
+
+            // Fade all cells in this board
+            const cells = board.querySelectorAll('.cell');
+            cells.forEach(cell => {
+              cell.style.opacity = '0.6';
+            });
+          } else if (boardWinners[i] === 'o') {
+            board.classList.add('won-o');
+            board.style.borderColor = gameSettings.oColor;
+            board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
+
+            // Fade all cells in this board
+            const cells = board.querySelectorAll('.cell');
+            cells.forEach(cell => {
+              cell.style.opacity = '0.6';
+            });
+          } else if (boardWinners[i] === 'tie') {
+            board.classList.add('tie');
+
+            // Fade all cells in this board
+            const cells = board.querySelectorAll('.cell');
+            cells.forEach(cell => {
+              cell.style.opacity = '0.6';
+            });
+          }
+
+          superBoard.appendChild(board);
+        }
+
+        // Update player display
+        playerXDisplay.classList.toggle('active', currentPlayer === 'x');
+        playerODisplay.classList.toggle('active', currentPlayer === 'o');
+
+        // Update colors based on settings
+        updateColors();
+
+        // Update active boards highlighting
+        updateActiveBoards();
+
+        // If game is over, show game over screen
+        if (gameWinner !== '') {
+          if (gameWinner === 'x') {
+            gameOverMessage.textContent =
+              gameSettings.gameMode === 'ai' ? 'You Win!' : 'Player X Wins!';
+            gameOverMessage.className = 'game-over-message x';
+          } else if (gameWinner === 'o') {
+            gameOverMessage.textContent =
+              gameSettings.gameMode === 'ai' ? 'AI Wins!' : 'Player O Wins!';
+            gameOverMessage.className = 'game-over-message o';
+          } else {
+            gameOverMessage.textContent = 'Game Tied!';
+            gameOverMessage.className = 'game-over-message tie';
+          }
+
+          // Draw super board winning line if there's a winner
+          if (winningCombination && gameWinner !== 'tie') {
+            drawSuperWinningLine(winningCombination);
+          }
+
+          gameOver.classList.add('show');
+        }
+
+        // Redraw winning lines for boards
+        for (let i = 0; i < 9; i++) {
+          if (boardWinners[i] === 'x' || boardWinners[i] === 'o') {
+            const winningCombo = findWinningCombo(i);
+            if (winningCombo) drawWinningLine(i, winningCombo);
+          }
+        }
+      }
+
+      // Find winning combo for a board (for UI recreation)
+      function findWinningCombo(boardIndex) {
+        const board = boards[boardIndex];
+        const winningCombos = [
+          [0, 1, 2],
+          [3, 4, 5],
+          [6, 7, 8], // rows
+          [0, 3, 6],
+          [1, 4, 7],
+          [2, 5, 8], // columns
+          [0, 4, 8],
+          [2, 4, 6], // diagonals
+        ];
+
+        for (const combo of winningCombos) {
+          const [a, b, c] = combo;
+          if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return combo;
+          }
+        }
+
+        return null;
+      }
+
+      // Update initGame to clear saved state and start a new game
       function initGame() {
+        // Clear saved game state
+        clearSavedGameState();
+
         // Clear the super board
         superBoard.innerHTML = '';
 
@@ -772,90 +1158,36 @@
         flipCoin();
       }
 
-      // Update colors based on settings
-      function updateColors() {
-        document.documentElement.style.setProperty(
-          '--x-color',
-          gameSettings.xColor,
-        );
-        document.documentElement.style.setProperty(
-          '--o-color',
-          gameSettings.oColor,
-        );
-
-        // Update player displays
-        playerXDisplay.style.color = gameSettings.xColor;
-        playerODisplay.style.color = gameSettings.oColor;
-
-        // Update color pickers
-        xColorPicker.style.backgroundColor = gameSettings.xColor;
-        oColorPicker.style.backgroundColor = gameSettings.oColor;
-
-        // Update existing board outlines
-        document.querySelectorAll('.board.won-x').forEach(board => {
-          board.style.borderColor = gameSettings.xColor;
-          board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
-        });
-
-        document.querySelectorAll('.board.won-o').forEach(board => {
-          board.style.borderColor = gameSettings.oColor;
-          board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
-        });
-
-        // Update existing winning lines
-        document.querySelectorAll('.winning-line').forEach(line => {
-          // Check if the line is in a board or at the super board level
-          const board = line.closest('.board');
-          if (board) {
-            const boardIndex = parseInt(board.dataset.index);
-            if (boardWinners[boardIndex] === 'x') {
-              line.style.backgroundColor = gameSettings.xColor;
-            } else if (boardWinners[boardIndex] === 'o') {
-              line.style.backgroundColor = gameSettings.oColor;
-            }
-          } else {
-            // Super board winning line
-            if (gameWinner === 'x') {
-              line.style.backgroundColor = gameSettings.xColor;
-            } else if (gameWinner === 'o') {
-              line.style.backgroundColor = gameSettings.oColor;
-            }
-          }
-        });
-      }
-
-      // Handle cell click
-      function handleCellClick(e) {
+      // Handle cell click event
+      function handleCellClick(event) {
+        // Only proceed if game is active
         if (!gameActive) return;
-        if (gameSettings.gameMode === 'ai' && currentPlayer === 'o') return; // Only human can click when in AI mode
 
-        const boardIndex = parseInt(e.target.dataset.board);
-        const cellIndex = parseInt(e.target.dataset.cell);
+        const cell = event.currentTarget;
+        const boardIndex = parseInt(cell.dataset.board);
+        const cellIndex = parseInt(cell.dataset.cell);
 
-        // Check if move is valid
-        if (boardWinners[boardIndex] !== '') return; // Board already won
-        if (boards[boardIndex][cellIndex] !== '') return; // Cell already taken
-        if (
-          gameSettings.rules === 'standard' &&
-          activeBoard !== null &&
-          activeBoard !== boardIndex
-        )
-          return; // Wrong board
+        // Check if cell is already occupied
+        if (boards[boardIndex][cellIndex] !== '') return;
+
+        // Check if this board is active
+        const board = cell.closest('.board');
+        if (!board.classList.contains('active')) return;
 
         // Make the move
         makeMove(boardIndex, cellIndex, currentPlayer);
 
-        // If in AI mode and it's AI's turn next, make AI move
+        // If game is still active and it's AI's turn, make AI move
         if (
-          gameSettings.gameMode === 'ai' &&
+          gameActive &&
           currentPlayer === 'o' &&
-          gameActive
+          gameSettings.gameMode === 'ai'
         ) {
-          setTimeout(() => aiMakeMove(), 300); // Small delay for better UX
+          setTimeout(() => aiMakeMove(), 500);
         }
       }
 
-      // Make a move on the board
+      // Update makeMove to save game state after each move
       function makeMove(boardIndex, cellIndex, player) {
         // Update game state
         boards[boardIndex][cellIndex] = player;
@@ -893,6 +1225,50 @@
 
         // Check if game has a winner
         checkGameWinner();
+
+        // Save game state
+        saveGameState();
+      }
+
+      // Add a wrapper function to initialize the game
+      function initializeGame() {
+        // Try to load saved game state first
+        if (loadGameState()) {
+          console.log('Loaded saved game state');
+          return;
+        }
+
+        // If no saved state or loading fails, start a new game with coin flip
+        initGame();
+      }
+
+      // Update endGame to save the final state
+      function endGame() {
+        gameActive = false;
+
+        // Show game over message
+        if (gameWinner === 'x') {
+          gameOverMessage.textContent =
+            gameSettings.gameMode === 'ai' ? 'You Win!' : 'Player X Wins!';
+          gameOverMessage.className = 'game-over-message x';
+        } else if (gameWinner === 'o') {
+          gameOverMessage.textContent =
+            gameSettings.gameMode === 'ai' ? 'AI Wins!' : 'Player O Wins!';
+          gameOverMessage.className = 'game-over-message o';
+        } else {
+          gameOverMessage.textContent = 'Game Tied!';
+          gameOverMessage.className = 'game-over-message tie';
+        }
+
+        // Draw super board winning line if there's a winner
+        if (winningCombination) {
+          drawSuperWinningLine(winningCombination);
+        }
+
+        // Save final game state
+        saveGameState();
+
+        gameOver.classList.add('show');
       }
 
       // Check if a board has a winner
@@ -937,13 +1313,28 @@
           board.style.borderColor = gameSettings.xColor;
           // Set background color with opacity
           board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
+
+          // Fade all X's and O's in this board
+          board.querySelectorAll('.cell').forEach(cell => {
+            cell.style.opacity = '0.6';
+          });
         } else if (boardWinners[boardIndex] === 'o') {
           board.classList.add('won-o');
           board.style.borderColor = gameSettings.oColor;
           // Set background color with opacity
           board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
+
+          // Fade all X's and O's in this board
+          board.querySelectorAll('.cell').forEach(cell => {
+            cell.style.opacity = '0.6';
+          });
         } else if (boardWinners[boardIndex] === 'tie') {
           board.classList.add('tie');
+
+          // Fade all X's and O's in this board
+          board.querySelectorAll('.cell').forEach(cell => {
+            cell.style.opacity = '0.6';
+          });
         }
 
         // If there's a winning combo, draw the line
@@ -972,43 +1363,46 @@
 
         // For rows
         if (aRow === cRow) {
-          startX = 5; // Small offset from edge
-          startY = (aRow + 0.5) * cellSize;
-          endX = boardRect.width - 5; // Small offset from edge
+          startX = cellSize * 0.1; // Small offset from the left edge
+          startY = (aRow + 0.5) * cellSize - 5; // Shifted up more significantly
+          endX = boardRect.width - cellSize * 0.1 - 6; // Small offset from the right edge
           endY = startY;
         }
         // For columns
         else if (aCol === cCol) {
-          startX = (aCol + 0.5) * cellSize;
-          startY = 5; // Small offset from edge
+          startX = (aCol + 0.5) * cellSize; // Centered horizontally
+          startY = cellSize * 0.1 - 2; // Shifted up at top
           endX = startX;
-          endY = boardRect.height - 5; // Small offset from edge
+          endY = boardRect.height - cellSize * 0.1 - 8; // Shifted up at bottom
         }
         // For diagonals
         else {
           if (a === 0 || c === 0) {
-            // Top-left to bottom-right
-            startX = 5;
-            startY = 5;
-            endX = boardRect.width - 5;
-            endY = boardRect.height - 5;
+            // Top-left to bottom-right diagonal
+            startX = cellSize * 0.1 + 2;
+            startY = cellSize * 0.1 - 0; // Shifted up at start
+            endX = boardRect.width - cellSize + 395 * 0.1 + 1;
+            endY = boardRect.height - cellSize + 395 * 0.1 - 1; // Shifted up more at end
           } else {
-            // Top-right to bottom-left
-            startX = boardRect.width - 5;
-            startY = 5;
-            endX = 5;
-            endY = boardRect.height - 5;
+            // Top-right to bottom-left diagonal
+            startX = boardRect.width - cellSize * 0.1 - 8;
+            startY = cellSize * 0.1 + 0; // Shifted up at start
+            endX = cellSize * 0.1 + 2;
+            endY = boardRect.height - cellSize * 0.1 - 10; // Shifted up more at end
           }
         }
 
         // Create the line element
         const line = document.createElement('div');
         line.className = 'winning-line';
-        line.style.width = `${Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2))}px`;
-        line.style.height = '4px';
+        line.style.width = `${Math.sqrt(
+          Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2),
+        )}px`;
+        line.style.height = '4px'; // Slightly thinner line for better aesthetics
         line.style.left = `${startX}px`;
         line.style.top = `${startY}px`;
         line.style.transform = `rotate(${Math.atan2(endY - startY, endX - startX)}rad)`;
+        line.style.transformOrigin = '0 50%'; // Center the line vertically
         line.style.backgroundColor =
           boardWinners[boardIndex] === 'x'
             ? gameSettings.xColor
@@ -1074,6 +1468,9 @@
         if (winningCombination) {
           drawSuperWinningLine(winningCombination);
         }
+
+        // Save final game state
+        saveGameState();
 
         gameOver.classList.add('show');
       }
@@ -1294,6 +1691,9 @@
             // Make the move
             makeMove(boardIndex, cellIndex, 'o');
 
+            // Save game state
+            saveGameState();
+
             // Hide thinking indicator
             aiThinking.classList.remove('show');
           },
@@ -1426,8 +1826,21 @@
         settingsModal.classList.remove('show');
       }
 
-      // Save settings
+      // Show How to Play modal
+      function showHowToPlay() {
+        document.getElementById('howToPlayModal').classList.add('show');
+      }
+
+      // Hide How to Play modal
+      function hideHowToPlay() {
+        document.getElementById('howToPlayModal').classList.remove('show');
+      }
+
+      // Update the saveGameSettings function
       function saveGameSettings() {
+        // Store the previous game mode
+        const previousGameMode = gameSettings.gameMode;
+
         // Get selected game mode
         gameSettings.gameMode = document.querySelector(
           'input[name="gameMode"]:checked',
@@ -1445,22 +1858,48 @@
           ).value;
         }
 
-        // Update colors based on color pickers
-        const selectedXColor = document.querySelector(
+        // Find color elements with safety checks
+        const xColorElement = document.querySelector(
           '.color-box.selected[data-player="x"]',
-        ).dataset.color;
-        const selectedOColor = document.querySelector(
+        );
+        const oColorElement = document.querySelector(
           '.color-box.selected[data-player="o"]',
-        ).dataset.color;
+        );
 
-        // Only update colors if they changed
+        // Only update colors if elements exist
+        if (xColorElement && oColorElement) {
+          const selectedXColor = xColorElement.dataset.color;
+          const selectedOColor = oColorElement.dataset.color;
+
+          if (
+            selectedXColor !== gameSettings.xColor ||
+            selectedOColor !== gameSettings.oColor
+          ) {
+            gameSettings.xColor = selectedXColor;
+            gameSettings.oColor = selectedOColor;
+            updateColors();
+          }
+        }
+
+        // Update player O display based on the game mode
+        if (gameSettings.gameMode === 'ai') {
+          playerODisplay.innerHTML = '<i class="fas fa-robot"></i> AI (O)';
+        } else {
+          playerODisplay.innerHTML = '<i class="fas fa-user"></i> Player (O)';
+        }
+
+        // Save the updated game state
+        saveGameState();
+
+        // Check if we switched from human to AI mode and it's AI's turn
         if (
-          selectedXColor !== gameSettings.xColor ||
-          selectedOColor !== gameSettings.oColor
+          previousGameMode === 'human' &&
+          gameSettings.gameMode === 'ai' &&
+          currentPlayer === 'o' &&
+          gameActive
         ) {
-          gameSettings.xColor = selectedXColor;
-          gameSettings.oColor = selectedOColor;
-          updateColors();
+          // Trigger AI move after a short delay
+          setTimeout(() => aiMakeMove(), 500);
         }
 
         hideSettings();
@@ -1551,10 +1990,30 @@
         colorPickerModal.style.display = 'none';
       }
 
+      // Show How to Play modal
+      function showHowToPlay() {
+        document.getElementById('howToPlayModal').classList.add('show');
+      }
+
+      // Hide How to Play modal
+      function hideHowToPlay() {
+        document.getElementById('howToPlayModal').classList.remove('show');
+      }
+
       // Event listeners for buttons
-      resetBtn.addEventListener('click', initGame);
-      newGameBtn.addEventListener('click', initGame);
-      playAgainBtn.addEventListener('click', initGame);
+      if (howToPlayBtn) howToPlayBtn.addEventListener('click', showHowToPlay);
+      if (closeHowToPlay)
+        closeHowToPlay.addEventListener('click', hideHowToPlay);
+      if (closeHowToPlayBtn)
+        closeHowToPlayBtn.addEventListener('click', hideHowToPlay);
+      newGameBtn.addEventListener('click', () => {
+        clearSavedGameState();
+        initGame();
+      });
+      playAgainBtn.addEventListener('click', () => {
+        clearSavedGameState();
+        initGame();
+      });
       viewBoardBtn.addEventListener('click', () =>
         gameOver.classList.remove('show'),
       );
@@ -1583,8 +2042,8 @@
         }
       });
 
-      // Initialize the game
-      initGame();
+      // Initialize the game (load from storage or start new)
+      initializeGame();
     </script>
   </body>
 </html>
