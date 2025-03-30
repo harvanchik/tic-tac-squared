@@ -640,13 +640,13 @@
       <h1>Tic Tac Squared</h1>
       <div class="game-info">
         <div class="player player-x active">
-          <i class="fas fa-times fa-lg"></i> HUMAN <i class="fas fa-user"></i>
+          <i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>
         </div>
         <div id="aiThinking" class="ai-thinking">
           AI thinking... <i class="fas fa-cog fa-spin"></i>
         </div>
         <div class="player player-o">
-          <i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>
+          <i class="fas fa-robot"></i> <i class="far fa-circle"></i>
         </div>
       </div>
     </header>
@@ -1050,10 +1050,10 @@
           // Update UI before restoring other state variables
           if (gameSettings.gameMode === 'ai') {
             playerODisplay.innerHTML =
-              '<i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>';
+              '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
           } else {
             playerODisplay.innerHTML =
-              '<i class="fas fa-user"></i> HUMAN <i class="far fa-circle"></i>';
+              '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
           }
 
           // Restore game state variables
@@ -1254,10 +1254,10 @@
         // Update player icons based on game mode
         if (gameSettings.gameMode === 'ai') {
           playerODisplay.innerHTML =
-            '<i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>';
+            '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
         } else {
           playerODisplay.innerHTML =
-            '<i class="fas fa-user"></i> HUMAN <i class="far fa-circle"></i>';
+            '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
         }
 
         // Hide game over screen
@@ -2007,10 +2007,10 @@
         // Update player O display based on the game mode
         if (gameSettings.gameMode === 'ai') {
           playerODisplay.innerHTML =
-            '<i class="fas fa-robot"></i> AI <i class="far fa-circle"></i>';
+            '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
         } else {
           playerODisplay.innerHTML =
-            '<i class="fas fa-user"></i> HUMAN <i class="far fa-circle"></i>';
+            '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
         }
 
         // Save the updated game state
