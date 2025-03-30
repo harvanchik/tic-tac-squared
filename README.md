@@ -5,7 +5,7 @@
 
 A strategic twist on the classic Tic Tac Toe game! Tic Tac Squared (also known as Ultimate Tic Tac Toe or Meta Tic Tac Toe) features a 3x3 grid of smaller Tic Tac Toe boards, creating a deeper level of strategy and gameplay.
 
-![Tic Tac Squared Game](assets/images/game-preview.png)
+![Tic Tac Squared Game](/assets/img/game-preview.png)
 
 ## Features
 
