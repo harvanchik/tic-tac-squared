@@ -309,14 +309,6 @@
         margin: 0;
       }
 
-      .close-settings {
-        background: none;
-        border: none;
-        color: var(--text-light);
-        font-size: 1.5rem;
-        cursor: pointer;
-      }
-
       .setting-group {
         margin-bottom: 20px;
       }
@@ -650,9 +642,6 @@
       <div class="settings-content">
         <div class="settings-header">
           <h3 class="settings-title">Game Settings</h3>
-          <button class="close-settings" id="closeSettings">
-            <i class="fas fa-times"></i>
-          </button>
         </div>
 
         <div class="setting-group">
@@ -890,7 +879,6 @@
       const viewBoardBtn = document.getElementById('viewBoardBtn');
       const settingsBtn = document.getElementById('settingsBtn');
       const settingsModal = document.getElementById('settingsModal');
-      const closeSettings = document.getElementById('closeSettings');
       const saveSettings = document.getElementById('saveSettings');
       const cancelSettings = document.getElementById('cancelSettings');
       const humanVsHuman = document.getElementById('humanVsHuman');
@@ -1346,6 +1334,9 @@
 
       // Add a wrapper function to initialize the game
       function initializeGame() {
+        // Set up modal outside click listeners
+        setupModalOutsideClickListeners();
+
         // Try to load saved game state first
         if (loadGameState()) {
           console.log('Loaded saved game state');
@@ -2067,6 +2058,44 @@
         }
       }
 
+      // Add function to handle closing modals when clicking outside
+      function setupModalOutsideClickListeners() {
+        // Add click event listeners to each modal
+        document
+          .querySelectorAll(
+            '.settings-modal, .how-to-play-modal, .color-picker-modal',
+          )
+          .forEach(modal => {
+            modal.addEventListener('click', function (event) {
+              // If the click is directly on the modal (background) and not on its children
+              if (event.target === modal) {
+                // Settings modal
+                if (modal.id === 'settingsModal') {
+                  hideSettings();
+                }
+                // How to play modal
+                else if (modal.id === 'howToPlayModal') {
+                  hideHowToPlay();
+                }
+                // Color picker modal
+                else if (modal.id === 'colorPickerModal') {
+                  colorPickerModal.classList.remove('show');
+                }
+              }
+            });
+          });
+
+        // Special case for game over modal
+        document
+          .getElementById('gameOver')
+          .addEventListener('click', function (event) {
+            // Only close if clicking directly on the background
+            if (event.target === this) {
+              gameOver.classList.remove('show');
+            }
+          });
+      }
+
       // Event listeners for buttons
       if (howToPlayBtn) howToPlayBtn.addEventListener('click', showHowToPlay);
       if (closeHowToPlayBtn)
@@ -2083,7 +2112,6 @@
         gameOver.classList.remove('show'),
       );
       settingsBtn.addEventListener('click', showSettings);
-      closeSettings.addEventListener('click', hideSettings);
       cancelSettings.addEventListener('click', hideSettings);
       saveSettings.addEventListener('click', saveGameSettings);
 
