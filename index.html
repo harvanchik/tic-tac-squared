@@ -1373,16 +1373,9 @@
         }
         clearSavedGameState();
 
-        // Set explicit defaults for a fresh game
-        gameSettings.gameMode = 'ai'; // Human vs AI
-        gameSettings.rules = 'standard';
-        gameSettings.difficulty = 'medium';
-
-        // Save these default preferences
-        localStorage.setItem(
-          'ticTacSquaredPreferences',
-          JSON.stringify(gameSettings),
-        );
+        // Don't reset settings to defaults if we have preferences saved
+        // The settings will be whatever was last saved or default if nothing was saved
+        // (The loadPreferences function already handles defaulting if needed)
 
         superBoard.innerHTML = '';
         document.querySelectorAll('.winning-line').forEach(el => el.remove());
