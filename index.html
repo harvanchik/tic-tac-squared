@@ -967,6 +967,10 @@
       // Add a timeout tracker for AI moves
       let pendingAIMove = null;
 
+      // Add temporary variables to store color selections before saving
+      let tempXColor;
+      let tempOColor;
+
       // Game state
       let currentPlayer = ''; // x or o (empty before coin flip)
       let activeBoard = null; // which board is active (null means any board)
@@ -2337,10 +2341,24 @@
         oColorPicker.style.backgroundColor = gameSettings.oColor;
         aiDifficultyGroup.style.display =
           gameSettings.gameMode === 'human' ? 'none' : 'block';
+
+        // Initialize temp colors with current values
+        tempXColor = gameSettings.xColor;
+        tempOColor = gameSettings.oColor;
+
         settingsModal.classList.add('show');
       }
 
       function hideSettings() {
+        // Reset color pickers to current game settings
+        if (xColorPicker) {
+          xColorPicker.value = gameSettings.xColor;
+          xColorPicker.style.backgroundColor = gameSettings.xColor;
+        }
+        if (oColorPicker) {
+          oColorPicker.value = gameSettings.oColor;
+          oColorPicker.style.backgroundColor = gameSettings.oColor;
+        }
         settingsModal.classList.remove('show');
       }
 
@@ -2359,8 +2377,10 @@
         const selectedDifficulty = document.querySelector(
           'input[name="difficulty"]:checked',
         ).value;
-        const selectedXColor = xColorPicker.value;
-        const selectedOColor = oColorPicker.value;
+
+        // Use the temp colors that were being previewed
+        const selectedXColor = tempXColor;
+        const selectedOColor = tempOColor;
 
         // Save previous settings to detect changes
         const prevGameMode = gameSettings.gameMode;
@@ -2440,6 +2460,20 @@
         }
       }
 
+      xColorPicker.addEventListener('input', event => {
+        const newColor = event.target.value;
+        tempXColor = newColor;
+        xColorPicker.style.backgroundColor = newColor;
+        // Don't update the game elements yet
+      });
+
+      oColorPicker.addEventListener('input', event => {
+        const newColor = event.target.value;
+        tempOColor = newColor;
+        oColorPicker.style.backgroundColor = newColor;
+        // Don't update the game elements yet
+      });
+
       // --- How To Play Modal ---
       function showHowToPlay() {
         howToPlayModal.classList.add('show');
@@ -2486,19 +2520,6 @@
         settingsBtn.addEventListener('click', showSettings);
         cancelSettings.addEventListener('click', hideSettings);
         saveSettings.addEventListener('click', saveGameSettings);
-
-        xColorPicker.addEventListener('input', event => {
-          const newColor = event.target.value;
-          document.documentElement.style.setProperty('--x-color', newColor);
-          playerXDisplay.style.color = newColor;
-          xColorPicker.style.backgroundColor = newColor;
-        });
-        oColorPicker.addEventListener('input', event => {
-          const newColor = event.target.value;
-          document.documentElement.style.setProperty('--o-color', newColor);
-          playerODisplay.style.color = newColor;
-          oColorPicker.style.backgroundColor = newColor;
-        });
 
         resetXColorBtn.addEventListener('click', e => {
           e.preventDefault();
