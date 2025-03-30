@@ -1127,6 +1127,12 @@
         if (!['human', 'ai'].includes(gameSettings.gameMode)) {
           gameSettings.gameMode = 'ai';
         }
+        // If no previous state exists, reset to default settings
+        if (!localStorage.getItem('ticTacSquaredState')) {
+          gameSettings.gameMode = 'ai';
+          gameSettings.rules = 'standard';
+          gameSettings.difficulty = 'medium';
+        }
         updateColors();
       }
 
@@ -1345,6 +1351,18 @@
           pendingAIMove = null;
         }
         clearSavedGameState();
+
+        // Set explicit defaults for a fresh game
+        gameSettings.gameMode = 'ai'; // Human vs AI
+        gameSettings.rules = 'standard';
+        gameSettings.difficulty = 'medium';
+
+        // Save these default preferences
+        localStorage.setItem(
+          'ticTacSquaredPreferences',
+          JSON.stringify(gameSettings),
+        );
+
         superBoard.innerHTML = '';
         document.querySelectorAll('.winning-line').forEach(el => el.remove());
         currentPlayer = '';
