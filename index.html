@@ -1767,16 +1767,16 @@
         else {
           if (a === 0 && c === 8) {
             // Top-left to bottom-right diagonal
-            startX = boardSize * 0.1;
-            startY = boardSize * 0.1;
-            endX = superBoardRect.width - boardSize * 0.1;
-            endY = superBoardRect.height - boardSize * 0.1;
+            startX = boardSize * 0.1 - 7;
+            startY = boardSize * 0.1 - 7;
+            endX = superBoardRect.width - boardSize * 0.1 + 7;
+            endY = superBoardRect.height - boardSize * 0.1 + 7;
           } else {
             // Top-right to bottom-left diagonal
-            startX = superBoardRect.width - boardSize * 0.1;
-            startY = boardSize * 0.1;
-            endX = boardSize * 0.1;
-            endY = superBoardRect.height - boardSize * 0.1;
+            startX = superBoardRect.width - boardSize * 0.1 + 7;
+            startY = boardSize * 0.1 - 7;
+            endX = boardSize * 0.1 - 7;
+            endY = superBoardRect.height - boardSize * 0.1 + 7;
           }
         }
 
