@@ -1309,14 +1309,34 @@
       function flipCoin() {
         coin.classList.remove('flipping');
         coinResult.textContent = '';
-        void coin.offsetWidth;
+        void coin.offsetWidth; // Force reflow to restart animation
+
+        // Determine who will go first
+        const randomResult = Math.random();
+        const winner = randomResult < 0.5 ? 'x' : 'o';
+
+        // Start flipping animation
         coin.classList.add('flipping');
+
         setTimeout(() => {
-          const randomResult = Math.random();
-          const winner = randomResult < 0.5 ? 'x' : 'o';
-          const finalRotation = winner === 'x' ? 3600 : 3600 + 180;
-          coin.style.transform = `rotateY(${finalRotation}deg) rotateX(3600deg)`;
-          coinResult.innerHTML = `<span style="color: ${winner === 'x' ? gameSettings.xColor : gameSettings.oColor}; font-weight: bold;">${winner.toUpperCase()} goes first!</span>`;
+          // After animation, remove the class to stop it
+          coin.classList.remove('flipping');
+
+          // Set the final rotation explicitly based on winner
+          if (winner === 'x') {
+            // Show X side up (heads)
+            coin.style.transform = 'rotateY(0deg) rotateX(0deg)';
+          } else {
+            // Show O side up (tails)
+            coin.style.transform = 'rotateY(180deg) rotateX(0deg)';
+          }
+
+          // Update result text with matching color
+          coinResult.innerHTML = `<span style="color: ${
+            winner === 'x' ? gameSettings.xColor : gameSettings.oColor
+          }; font-weight: bold;">${winner.toUpperCase()} goes first!</span>`;
+
+          // Start the game with the correct player
           setTimeout(() => {
             coinFlipModal.style.display = 'none';
             startGame(winner);
