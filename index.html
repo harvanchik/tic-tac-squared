@@ -618,6 +618,21 @@
       .game-over button:hover {
         border-color: rgba(255, 255, 255, 0.8);
       }
+
+      /* Add two-column layout for settings */
+      .settings-columns {
+        display: flex;
+        gap: 20px;
+      }
+
+      .settings-column {
+        flex: 1;
+      }
+
+      /* Make sure AI difficulty group doesn't increase modal height */
+      #aiDifficultyGroup {
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -644,24 +659,59 @@
           <h3 class="settings-title">Game Settings</h3>
         </div>
 
-        <div class="setting-group">
-          <label class="setting-label">Game Mode:</label>
-          <div class="setting-option">
-            <input
-              type="radio"
-              id="humanVsHuman"
-              name="gameMode"
-              value="human" />
-            <label for="humanVsHuman">Human vs Human</label>
+        <div class="settings-columns">
+          <div class="settings-column">
+            <div class="setting-group">
+              <label class="setting-label">Game Mode:</label>
+              <div class="setting-option">
+                <input
+                  type="radio"
+                  id="humanVsHuman"
+                  name="gameMode"
+                  value="human" />
+                <label for="humanVsHuman">Human vs Human</label>
+              </div>
+              <div class="setting-option">
+                <input
+                  type="radio"
+                  id="humanVsAI"
+                  name="gameMode"
+                  value="ai"
+                  checked />
+                <label for="humanVsAI">Human vs AI</label>
+              </div>
+            </div>
           </div>
-          <div class="setting-option">
-            <input
-              type="radio"
-              id="humanVsAI"
-              name="gameMode"
-              value="ai"
-              checked />
-            <label for="humanVsAI">Human vs AI</label>
+
+          <div class="settings-column">
+            <div class="setting-group" id="aiDifficultyGroup">
+              <label class="setting-label">AI Difficulty:</label>
+              <div class="setting-option">
+                <input
+                  type="radio"
+                  id="easyAI"
+                  name="difficulty"
+                  value="easy" />
+                <label for="easyAI">Easy</label>
+              </div>
+              <div class="setting-option">
+                <input
+                  type="radio"
+                  id="mediumAI"
+                  name="difficulty"
+                  value="medium"
+                  checked />
+                <label for="mediumAI">Medium</label>
+              </div>
+              <div class="setting-option">
+                <input
+                  type="radio"
+                  id="hardAI"
+                  name="difficulty"
+                  value="hard" />
+                <label for="hardAI">Hard</label>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -675,35 +725,14 @@
               value="standard"
               checked />
             <label for="standardRules"
-              >Standard Rules (Next board determined by last move)</label
+              >Standard (next board determined by last move)</label
             >
           </div>
           <div class="setting-option">
             <input type="radio" id="freeRules" name="rules" value="free" />
             <label for="freeRules"
-              >Free Play (Move in any board at any time)</label
+              >Free Play (move in any board at any time)</label
             >
-          </div>
-        </div>
-
-        <div class="setting-group" id="aiDifficultyGroup">
-          <label class="setting-label">AI Difficulty:</label>
-          <div class="setting-option">
-            <input type="radio" id="easyAI" name="difficulty" value="easy" />
-            <label for="easyAI">Easy (Random moves)</label>
-          </div>
-          <div class="setting-option">
-            <input
-              type="radio"
-              id="mediumAI"
-              name="difficulty"
-              value="medium"
-              checked />
-            <label for="mediumAI">Medium (Basic strategy)</label>
-          </div>
-          <div class="setting-option">
-            <input type="radio" id="hardAI" name="difficulty" value="hard" />
-            <label for="hardAI">Hard (Advanced strategy)</label>
           </div>
         </div>
 
@@ -907,6 +936,8 @@
       let gameWinner = '';
       let gameActive = false; // starts false until coin flip
       let winningCombination = null;
+      // Add lastMove tracking
+      let lastMove = { boardIndex: -1, cellIndex: -1, player: '' };
 
       // Game settings
       let gameSettings = {
@@ -999,6 +1030,7 @@
           gameActive,
           winningCombination,
           gameSettings,
+          lastMove, // Save the last move information
         };
 
         localStorage.setItem('ticTacSquaredState', JSON.stringify(gameState));
@@ -1032,6 +1064,14 @@
           gameWinner = gameState.gameWinner;
           gameActive = gameState.gameActive;
           winningCombination = gameState.winningCombination;
+
+          // Restore last move information
+          if (gameState.lastMove) {
+            lastMove = gameState.lastMove;
+          } else {
+            // For backwards compatibility with older saved games
+            lastMove = { boardIndex: -1, cellIndex: -1, player: '' };
+          }
 
           // Recreate the board UI
           recreateGameUI();
@@ -1205,6 +1245,7 @@
         gameWinner = '';
         gameActive = false;
         winningCombination = null;
+        lastMove = { boardIndex: -1, cellIndex: -1, player: '' };
 
         // Update player display
         playerXDisplay.classList.remove('active');
@@ -1284,7 +1325,7 @@
         }
       }
 
-      // Update makeMove to save game state after each move
+      // Update makeMove to track lastMove
       function makeMove(boardIndex, cellIndex, player) {
         // Update game state
         boards[boardIndex][cellIndex] = player;
@@ -1293,6 +1334,9 @@
         document.querySelectorAll('.cell.last-move').forEach(cell => {
           cell.classList.remove('last-move');
         });
+
+        // Update lastMove tracking
+        lastMove = { boardIndex, cellIndex, player };
 
         // Update UI
         const cell = document.querySelector(
@@ -2035,16 +2079,31 @@
         }
       }
 
-      // Add helper function to find and highlight the last move
+      // Update findAndHighlightLastMove to use the stored lastMove information
       function findAndHighlightLastMove() {
-        // The last move would belong to the opposite of the current player
+        // If we have a valid lastMove stored, use it
+        if (
+          lastMove.boardIndex >= 0 &&
+          lastMove.cellIndex >= 0 &&
+          lastMove.player
+        ) {
+          const cell = document.querySelector(
+            `.cell[data-board="${lastMove.boardIndex}"][data-cell="${lastMove.cellIndex}"]`,
+          );
+          if (cell) {
+            cell.classList.add('last-move');
+            return;
+          }
+        }
+
+        // Fallback to the old method if no lastMove is stored
+        // This is less reliable but maintains compatibility
         const lastPlayer = currentPlayer === 'x' ? 'o' : 'x';
 
         // Look through all boards and find the most recent move
         for (let i = 0; i < 9; i++) {
           for (let j = 0; j < 9; j++) {
             if (boards[i][j] === lastPlayer) {
-              // This could be the last move - check the cell
               const cell = document.querySelector(
                 `.cell[data-board="${i}"][data-cell="${j}"]`,
               );
