@@ -634,6 +634,27 @@
       #aiDifficultyGroup {
         display: none;
       }
+
+      /* Add style for the reset color buttons */
+      .reset-color-btn {
+        background: none;
+        border: none;
+        color: var(--text-light);
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 50%;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        margin-left: 5px;
+      }
+
+      .reset-color-btn:hover {
+        background-color: var(--highlight);
+        transform: rotate(-45deg);
+      }
     </style>
   </head>
   <body>
@@ -760,6 +781,9 @@
                   padding: 0;
                   overflow: hidden;
                 " />
+              <button class="reset-color-btn" id="resetXColor">
+                <i class="fas fa-undo-alt"></i>
+              </button>
             </div>
             <div class="color-option">
               <label>O Color</label>
@@ -781,6 +805,9 @@
                   padding: 0;
                   overflow: hidden;
                 " />
+              <button class="reset-color-btn" id="resetOColor">
+                <i class="fas fa-undo-alt"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -924,8 +951,14 @@
       const cancelColorBtn = document.getElementById('cancelColorBtn');
       const xColorPicker = document.getElementById('xColorPicker');
       const oColorPicker = document.getElementById('oColorPicker');
+      const resetXColorBtn = document.getElementById('resetXColor');
+      const resetOColorBtn = document.getElementById('resetOColor');
       const howToPlayModal = document.getElementById('howToPlayModal');
       const closeHowToPlayBtn = document.getElementById('closeHowToPlayBtn');
+
+      // Default color constants
+      const DEFAULT_X_COLOR = '#ff4757';
+      const DEFAULT_O_COLOR = '#1e90ff';
 
       // Game state
       let currentPlayer = ''; // x or o (empty before coin flip)
@@ -944,8 +977,8 @@
       let gameSettings = {
         gameMode: 'ai', // 'human' or 'ai'
         rules: 'standard', // 'standard' or 'free'
-        xColor: '#ff4757',
-        oColor: '#1e90ff',
+        xColor: DEFAULT_X_COLOR,
+        oColor: DEFAULT_O_COLOR,
         difficulty: 'medium', // 'easy', 'medium', 'hard'
       };
 
@@ -2202,6 +2235,23 @@
           gameSettings.oColor = newColor;
           updateColors();
         });
+
+      // Reset color button event listeners
+      resetXColorBtn.addEventListener('click', function (e) {
+        e.preventDefault(); // Prevent form submission
+        gameSettings.xColor = DEFAULT_X_COLOR;
+        xColorPicker.value = DEFAULT_X_COLOR;
+        xColorPicker.style.backgroundColor = DEFAULT_X_COLOR;
+        updateColors();
+      });
+
+      resetOColorBtn.addEventListener('click', function (e) {
+        e.preventDefault(); // Prevent form submission
+        gameSettings.oColor = DEFAULT_O_COLOR;
+        oColorPicker.value = DEFAULT_O_COLOR;
+        oColorPicker.style.backgroundColor = DEFAULT_O_COLOR;
+        updateColors();
+      });
 
       // Game mode change listener
       humanVsHuman.addEventListener('change', function () {
