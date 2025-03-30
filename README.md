@@ -1,76 +1,99 @@
-# Tailwind CSS Starter Template Documentation
+# Tic Tac Squared
 
-<!-- ![GitHub Actions Status](https://github.com/harvanchik/tailwind-template/workflows/NodeJS%20with%20Gulp/badge.svg) -->
+[![Maintenance](https://img.shields.io/badge/maintained%3F-yes-green.svg)](https://github.com/yourusername/tic-tac-squared/graphs/commit-activity)
+![GitHub license](https://img.shields.io/github/license/yourusername/tic-tac-squared)
 
-[![Maintenance](https://img.shields.io/badge/maintained%3F-yes-green.svg)](https://GitHub.com/harvanchik/tailwind-template/graphs/commit-activity)
-[![GitHub release](https://img.shields.io/github/release/harvanchik/tailwind-template.svg)](https://github.com/harvanchik/tailwind-template/releases/)
-![Maintainer](https://img.shields.io/badge/maintainer-harvanchik-blue)
-[![GitHub license](https://img.shields.io/github/license/harvanchik/tailwind-template.svg)](https://github.com/harvanchik/tailwind-template/blob/master/LICENSE)
+A strategic twist on the classic Tic Tac Toe game! Tic Tac Squared (also known as Ultimate Tic Tac Toe or Meta Tic Tac Toe) features a 3x3 grid of smaller Tic Tac Toe boards, creating a deeper level of strategy and gameplay.
+
+![Tic Tac Squared Game](assets/images/game-preview.png)
+
+## Features
+
+- **Multiple Game Modes**: Play against another person or challenge the AI with adjustable difficulty levels
+- **Customizable Rules**: Choose between standard rules (next move determined by opponent's last move) or free play mode
+- **Custom Player Colors**: Personalize your X and O colors
+- **Responsive Design**: Play on any device - desktop, tablet, or mobile
+- **Game State Saving**: Games are automatically saved in your browser's local storage
 
 ## Getting Started
 
-### Node Modules
+### Prerequisites
 
-First and foremost, make sure to run `pnpm install` in the terminal in the root directory of this project. This will install all of the required dependencies and generate your **node_modules** folder. This step is very important.
+- A modern web browser (Chrome, Firefox, Safari, Edge)
+- Optional: Local web server for development
 
-## Project Styles
+### Running the Game Locally
 
-### Tailwind CSS
+There are several ways to run the game locally on your machine:
 
-This project uses [Tailwind CSS](https://tailwindcss.com/ 'TailwindCSS'), a utility-first CSS framework. The required dependencies should already be included in this project. If you are missing the **node_modules** folder, simply run `pnpm install`, and it should generate with the dependencies specified in the **package.json** file.
+#### Method 1: Directly Opening the HTML File
 
-### Tailwind Intellisense
+The simplest way to play the game is to open the `index.html` file directly in your browser:
 
-To enable Tailwind CSS Intellisense, you'll need the VS Code extension. I suggest installing the [Tailwind CSS Extension Pack](https://marketplace.visualstudio.com/items?itemName=andrewmcodes.tailwindcss-extension-pack) which comes with a few extensions that all work together to make using Tailwind CSS a much better experience. To learn more about it, click the link above.
+1. Download or clone the repository
+   ```
+   git clone https://github.com/harvanchik/tic-tac-squared.git
+   ```
+2. Navigate to the project folder
+3. Double-click on `index.html` to open it in your default web browser
 
-### Files
+Note: Some browsers may restrict certain features when running HTML files directly from your file system.
 
-In the root folder of the project, there is an **assets/styles** folder. This houses the **tailwind.css** file. This file is used to eventually generate the fully compiled Tailwind CSS styles. Once compiled, it outputs the classes to the **styles.css** file, also located in the **assets/styles** folder.
+#### Method 2: Using Live Server in VS Code (Recommended for Development)
 
-## Working in Development
+1. Install [Visual Studio Code](https://code.visualstudio.com/)
+2. Open the project folder in VS Code
+3. Install the "Live Server" extension:
+   - Click the Extensions icon in the sidebar (or press `Ctrl+Shift+X`)
+   - Search for "Live Server"
+   - Install the extension by Ritwick Dey
+4. Start the server by clicking "Go Live" in the bottom right corner of VS Code
+5. Your default browser will automatically open with the game running
 
-To work in a development environment, run the `dev` NPM script. To do so, use either method outlined below.
+#### Method 3: Using a Local Web Server
 
-- Run `pnpm run dev` in the root folder of the project.
-- Use the NPM scripts shortcut in the [bottom left corner of the File Explorer tab in VS Code](https://imgur.com/a/pLlZvpk.png).
+You can use any local web server solution, such as:
 
-This will start a **long-running watch process** that will **generate** your styles **on-demand** instead of generating everything in advance. This is extremely useful for making development quicker and more efficient. In the terminal, you should see the initial compile message and the amount of time it took. Anytime you save an HTML file, the **tailwind.css** file, or the **tailwind.config.js** file, the CSS will be processed and re-compiled. These styles will not be minified in the development process.
+- **Node.js with http-server**:
 
-Please note that classes are added on-demand, but not removed on-demand. This is currently by design as [stated by Adam Wathan](https://github.com/tailwindlabs/tailwindcss/issues/4098#issuecomment-821867583 'stated by Adam Wathan'), the creator of Tailwind CSS. To work around this (cache bust it), simply save the **tailwind.css** file. It will force a full re-compile and remove any unused classes.
+  ```
+  npm install -g http-server
+  cd /path/to/tic-tac-squared
+  http-server
+  ```
 
-To kill the watch process, put your focus in the terminal that the process is running it, and press `CTRL + C`. You should be prompted to confirm your termination of the process. Confirm your choice by entering `Y` followed by the `ENTER` key.
+- **Python's built-in HTTP server**:
+  ```
+  cd /path/to/tic-tac-squared
+  # For Python 3
+  python -m http.server
+  # For Python 2
+  python -m SimpleHTTPServer
+  ```
 
-### Live Server
+Then open your browser and navigate to `http://localhost:8080` (or whatever port your server is using).
 
-We will be using a VS Code extension to start our server up. Search for "Live Server" in the VS Code extensions tab. Alternatively, you can find it on the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer).
+## How to Play
 
-Once you download and install the extension, you might see a [new button](https://imgur.com/a/KiUuKno.png) in the lower right-hand corner of the window in the blue ribbon. It says **Go Live**. When you click that, it should start the server and open it on your browser.
+### Basic Rules
 
-If you do not see the button, simply [right click](https://imgur.com/a/SR1f6sC.png) on the **index.html** file in the VS Code file explorer, and click **Open with Live Server**.
+1. **Objective**: Win three small boards in a row (horizontally, vertically, or diagonally) on the super board
+2. **Gameplay**: Players take turns marking spaces with X or O
+3. **Small Board Wins**: Win a small board by getting three marks in a row within that board
+4. **Board Selection**:
+   - **Standard Rules**: Your move sends your opponent to the corresponding board. For example, if you play in the top-right cell of any small board, your opponent must play in the top-right board of the super board
+   - **Free Play**: Players can play in any non-completed board on their turn
 
-## Building for Production
+### Special Situations
 
-Building for production is similar to building for development. Do either of the following to build the CSS for production.
+- If a player is sent to a board that's already won or tied, they can play in any available board
+- A tied board (filled with no winner) doesn't count for either player
 
-- Run `pnpm run prod` in the root folder of the project.
-- Execute `prod` in the NPM scripts shortcut located at the [bottom left of the File Explorer tab in VS Code](https://imgur.com/a/sXlKWwV.png).
+## Game Settings
 
-Contrary to the development script we used before, this will **not** start a long-running watch process; rather, this script compiles the CSS once and only once. It will take only classes found in the HTML files located in the root folder and compile them into the **styles.css** file located in **assets/styles/styles.css**. These styles will be minified.
+Access the settings by clicking the "Settings" button at the bottom of the screen:
 
-### Deploying the Project
-
-This project uses [Gulp](https://www.npmjs.com/package/gulp) to build the project for deployment. By running Gulp, it will create a **dist** folder in the root of your project. Gulp will then copy over all the necessary files from your project's source and assets into the **dist** folder.
-
-In addition to that, Gulp will also optimize and minify the files as needed. The HTML, SVG, and JavaScript files will all be minified. Minifying a file simply means removing whitespace and other unnecessary characters/symbols. We do this to reduce the size of the files(s).
-
-The styles (css) will be copied over to the dist as well. Since the css is already minified by Tailwind CLI's use of [PostCSS](https://postcss.org/) and the [JIT Engine](https://tailwindcss.com/docs/just-in-time-mode), we do not need to minify it here. It is **important** to first run `pnpm run prod` before running `gulp`. By not doing this, gulp will be using the non-minified version of your CSS.
-
-The images will also be copied over as well and optimized using [gulp-image](https://www.npmjs.com/package/gulp-image), an image optimizer. This will **only** optimize PNG, JPG, and GIF images. Nearly every other image type will be copied over, but not optimized, including PDF files.
-
-### Using Gulp
-
-So how do you use Gulp? It's very easy! Here are three options. 1) Open the [VS Code terminal](https://imgur.com/a/JbdX0if.png) and run the command `gulp`. This will execute the default task found in the **gulpfile.js** file in the root directory. The default task then executes, in order, all of the other tasks to build the project. 2) Alternatively, I have created an NPM script called `gulp`. You can run this from the [bottom left corner of the VS Code window in the NPM Scripts tab](https://imgur.com/a/3hGD00j.png). 3) If you do not see the NPM scripts tab, you may also [run this command in the terminal](https://imgur.com/a/Ucmbmtz.png) by running `pnpm run gulp`, but at that point, just typing `gulp` is easier.
-
-### What if I Need a Different Output Folder Name?
-
-In the case that you need to change the name of the output folder from **dist** to something else, simply navigate to the **gulpfile.js** file and find the variable `destination` [located near the top of the file](https://imgur.com/a/MqWSltR.png). By default, it is set to `dist`, but you may change this by replacing the `dist` part of the string to whatever you'd like. Another common destination folder name is `docs`, which is used for deploying a project to [GitHub Pages](https://pages.github.com/).
+- **Game Mode**: Choose between Human vs Human or Human vs AI
+- **AI Difficulty**: When playing against AI, select Easy, Medium, or Hard
+- **Rules**: Select Standard or Free Play rules
+- **Player Colors**: Customize the colors for X and O
