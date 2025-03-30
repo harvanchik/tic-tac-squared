@@ -1719,6 +1719,89 @@
         boardElement.appendChild(line);
       }
 
+      // Draw winning line on the super board
+      function drawSuperWinningLine(combo) {
+        const existingLine = superBoard.querySelector(
+          '.winning-line:not([data-board-index])',
+        );
+        if (existingLine) return;
+
+        const [a, c] = [combo[0], combo[2]];
+        const boardA = document.querySelector(`.board[data-index="${a}"]`);
+        const boardC = document.querySelector(`.board[data-index="${c}"]`);
+
+        if (!boardA || !boardC) {
+          console.error('Could not find boards for super winning line', combo);
+          return;
+        }
+
+        const boardARect = boardA.getBoundingClientRect();
+        const boardCRect = boardC.getBoundingClientRect();
+        const superBoardRect = superBoard.getBoundingClientRect();
+
+        const aCol = a % 3;
+        const aRow = Math.floor(a / 3);
+        const cCol = c % 3;
+        const cRow = Math.floor(c / 3);
+
+        let startX, startY, endX, endY;
+        const boardSize = superBoardRect.width / 3;
+        const lineThickness = 10; // Thicker line for super board
+
+        // For rows (horizontal lines)
+        if (aRow === cRow) {
+          startX = boardSize * 0.1 - 8.5;
+          startY = aRow * boardSize + boardSize / 2;
+          endX = superBoardRect.width - boardSize * 0.1 + 8.5;
+          endY = startY;
+        }
+        // For columns (vertical lines)
+        else if (aCol === cCol) {
+          startX = aCol * boardSize + boardSize / 2;
+          startY = boardSize * 0.1 - 8;
+          endX = startX;
+          endY = superBoardRect.height - boardSize * 0.1 + 7.5;
+        }
+        // For diagonals
+        else {
+          if (a === 0 && c === 8) {
+            // Top-left to bottom-right diagonal
+            startX = boardSize * 0.1;
+            startY = boardSize * 0.1;
+            endX = superBoardRect.width - boardSize * 0.1;
+            endY = superBoardRect.height - boardSize * 0.1;
+          } else {
+            // Top-right to bottom-left diagonal
+            startX = superBoardRect.width - boardSize * 0.1;
+            startY = boardSize * 0.1;
+            endX = boardSize * 0.1;
+            endY = superBoardRect.height - boardSize * 0.1;
+          }
+        }
+
+        const line = document.createElement('div');
+        line.className = 'winning-line';
+
+        // Calculate length and angle
+        const deltaX = endX - startX;
+        const deltaY = endY - startY;
+        const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const angleRad = Math.atan2(deltaY, deltaX);
+
+        // Set line properties
+        line.style.width = `${length}px`;
+        line.style.height = `${lineThickness}px`;
+        line.style.left = `${startX}px`;
+        line.style.top = `${startY - lineThickness / 2}px`;
+        line.style.transform = `rotate(${angleRad}rad)`;
+        line.style.transformOrigin = '0 50%';
+        line.style.backgroundColor =
+          gameWinner === 'x' ? gameSettings.xColor : gameSettings.oColor;
+        line.style.zIndex = '10'; // Higher z-index to appear above board lines
+
+        superBoard.appendChild(line);
+      }
+
       // Check if the game has a winner
       function checkGameWinner() {
         if (gameWinner) return;
