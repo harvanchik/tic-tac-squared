@@ -946,17 +946,13 @@
       const settingsModal = document.getElementById('settingsModal');
       const saveSettings = document.getElementById('saveSettings');
       const cancelSettings = document.getElementById('cancelSettings');
-      const humanVsHuman = document.getElementById('humanVsHuman');
-      const humanVsAI = document.getElementById('humanVsAI');
+      const humanVsHumanRadio = document.getElementById('humanVsHuman');
+      const humanVsAIRadio = document.getElementById('humanVsAI');
+      // const aiVsAiRadio = document.getElementById('aiVsAi'); // Reference removed - AIvAI functionality disabled
       const aiDifficultyGroup = document.getElementById('aiDifficultyGroup');
       const coinFlipModal = document.getElementById('coinFlipModal');
       const coin = document.getElementById('coin');
       const coinResult = document.getElementById('coinResult');
-      const colorPickerModal = document.getElementById('colorPickerModal');
-      const colorPickerTitle = document.getElementById('colorPickerTitle');
-      const colorPickerInput = document.getElementById('colorPickerInput');
-      const confirmColorBtn = document.getElementById('confirmColorBtn');
-      const cancelColorBtn = document.getElementById('cancelColorBtn');
       const xColorPicker = document.getElementById('xColorPicker');
       const oColorPicker = document.getElementById('oColorPicker');
       const resetXColorBtn = document.getElementById('resetXColor');
@@ -981,28 +977,32 @@
       let gameWinner = '';
       let gameActive = false; // starts false until coin flip
       let winningCombination = null;
-      // Add lastMove tracking
       let lastMove = { boardIndex: -1, cellIndex: -1, player: '' };
 
-      // Game settings
+      // Game settings (initialized with defaults)
       let gameSettings = {
-        gameMode: 'ai', // 'human', 'ai' or 'aivsai'
+        gameMode: 'ai', // 'human', 'ai' (aivsai removed)
         rules: 'standard', // 'standard' or 'free'
         xColor: DEFAULT_X_COLOR,
         oColor: DEFAULT_O_COLOR,
         difficulty: 'medium', // 'easy', 'medium', 'hard'
       };
 
-      // Color picker state
-      let currentColorPicker = null; // 'x' or 'o' when picking color
-
       // Helper function to convert hex to rgba
       function hexToRGBA(hex, alpha) {
-        let r = parseInt(hex.slice(1, 3), 16);
-        let g = parseInt(hex.slice(3, 5), 16);
-        let b = parseInt(hex.slice(5, 7), 16);
-
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        if (!hex || hex.length < 7) {
+          console.warn(`Invalid hex color: ${hex}. Using default.`);
+          hex = '#000000'; // Default to black if invalid
+        }
+        try {
+          let r = parseInt(hex.slice(1, 3), 16);
+          let g = parseInt(hex.slice(3, 5), 16);
+          let b = parseInt(hex.slice(5, 7), 16);
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        } catch (error) {
+          console.error(`Error parsing hex color ${hex}:`, error);
+          return `rgba(0, 0, 0, ${alpha})`; // Default to black RGBA
+        }
       }
 
       // Update colors based on game settings
@@ -1018,10 +1018,18 @@
         );
 
         // Update player displays
+        // Player X is always user unless gameMode changes (handled in settings save)
+        // Player O is user in human mode, robot in AI mode
+        const playerXIcon = 'fa-user'; // X is always human now
+        const playerOIcon =
+          gameSettings.gameMode === 'human' ? 'fa-user' : 'fa-robot';
+        playerXDisplay.innerHTML = `<i class="fas ${playerXIcon}"></i> <i class="fas fa-times fa-lg"></i>`;
+        playerODisplay.innerHTML = `<i class="fas ${playerOIcon}"></i> <i class="far fa-circle"></i>`;
+
         playerXDisplay.style.color = gameSettings.xColor;
         playerODisplay.style.color = gameSettings.oColor;
 
-        // Update color pickers if they exist
+        // Update color pickers
         if (xColorPicker) {
           xColorPicker.value = gameSettings.xColor;
           xColorPicker.style.backgroundColor = gameSettings.xColor;
@@ -1031,37 +1039,48 @@
           oColorPicker.style.backgroundColor = gameSettings.oColor;
         }
 
-        // Update existing board outlines for won boards
+        // Update existing board visuals
         document.querySelectorAll('.board.won-x').forEach(board => {
           board.style.borderColor = gameSettings.xColor;
           board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
         });
-
         document.querySelectorAll('.board.won-o').forEach(board => {
           board.style.borderColor = gameSettings.oColor;
           board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
         });
 
-        // Update winning lines
+        // Update existing cell colors
+        document.querySelectorAll('.cell.x').forEach(cell => {
+          cell.style.color = gameSettings.xColor;
+        });
+        document.querySelectorAll('.cell.o').forEach(cell => {
+          cell.style.color = gameSettings.oColor;
+        });
+
+        // Update winning lines colors
         document.querySelectorAll('.winning-line').forEach(line => {
-          const board = line.closest('.board');
-          if (board) {
-            // Line is in a specific board
-            const boardIndex = parseInt(board.dataset.index);
-            if (boardWinners[boardIndex] === 'x') {
+          const boardElement = line.closest('.board');
+          if (boardElement) {
+            const boardIndex = parseInt(boardElement.dataset.index);
+            if (boardWinners[boardIndex] === 'x')
               line.style.backgroundColor = gameSettings.xColor;
-            } else if (boardWinners[boardIndex] === 'o') {
+            else if (boardWinners[boardIndex] === 'o')
               line.style.backgroundColor = gameSettings.oColor;
-            }
-          } else {
-            // Line is on the super board
-            if (gameWinner === 'x') {
+            else line.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+          } else if (superBoard.contains(line)) {
+            if (gameWinner === 'x')
               line.style.backgroundColor = gameSettings.xColor;
-            } else if (gameWinner === 'o') {
+            else if (gameWinner === 'o')
               line.style.backgroundColor = gameSettings.oColor;
-            }
+            else line.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
           }
         });
+
+        // Update coin colors
+        const coinHeads = document.querySelector('.coin-side.heads');
+        const coinTails = document.querySelector('.coin-side.tails');
+        if (coinHeads) coinHeads.style.color = gameSettings.xColor;
+        if (coinTails) coinTails.style.color = gameSettings.oColor;
       }
 
       // Save game state to localStorage
@@ -1074,49 +1093,56 @@
           gameWinner,
           gameActive,
           winningCombination,
-          gameSettings,
-          lastMove, // Save the last move information
+          lastMove,
         };
-
         localStorage.setItem('ticTacSquaredState', JSON.stringify(gameState));
+        localStorage.setItem(
+          'ticTacSquaredPreferences',
+          JSON.stringify(gameSettings),
+        );
+      }
+
+      // Load preferences function
+      function loadPreferences() {
+        const savedPrefs = localStorage.getItem('ticTacSquaredPreferences');
+        if (savedPrefs) {
+          try {
+            const prefs = JSON.parse(savedPrefs);
+            const validPrefs = {};
+            // Only allow 'human' or 'ai' for gameMode now
+            if (['human', 'ai'].includes(prefs.gameMode))
+              validPrefs.gameMode = prefs.gameMode;
+            if (['standard', 'free'].includes(prefs.rules))
+              validPrefs.rules = prefs.rules;
+            if (prefs.xColor) validPrefs.xColor = prefs.xColor;
+            if (prefs.oColor) validPrefs.oColor = prefs.oColor;
+            if (['easy', 'medium', 'hard'].includes(prefs.difficulty))
+              validPrefs.difficulty = prefs.difficulty;
+            gameSettings = { ...gameSettings, ...validPrefs };
+          } catch (e) {
+            console.error('Error loading preferences:', e);
+            localStorage.removeItem('ticTacSquaredPreferences');
+          }
+        }
+        // Ensure gameMode is valid after loading, default to 'ai' if invalid
+        if (!['human', 'ai'].includes(gameSettings.gameMode)) {
+          gameSettings.gameMode = 'ai';
+        }
+        updateColors();
       }
 
       // Update the loadGameState function to trigger AI move if needed
       function loadGameState() {
-        // Clear any pending AI moves first
         if (pendingAIMove !== null) {
           clearTimeout(pendingAIMove);
           pendingAIMove = null;
         }
-
         try {
           const savedState = localStorage.getItem('ticTacSquaredState');
           if (!savedState) return false;
-
           const gameState = JSON.parse(savedState);
+          updateColors(); // Apply loaded preferences first
 
-          // Restore game settings
-          gameSettings = gameState.gameSettings;
-
-          // Update UI before restoring other state variables
-          if (gameSettings.gameMode === 'ai') {
-            playerODisplay.innerHTML =
-              '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
-            playerXDisplay.innerHTML =
-              '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
-          } else if (gameSettings.gameMode === 'aivsai') {
-            playerODisplay.innerHTML =
-              '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
-            playerXDisplay.innerHTML =
-              '<i class="fas fa-robot"></i> <i class="fas fa-times fa-lg"></i>';
-          } else {
-            playerODisplay.innerHTML =
-              '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
-            playerXDisplay.innerHTML =
-              '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
-          }
-
-          // Restore game state variables
           currentPlayer = gameState.currentPlayer;
           activeBoard = gameState.activeBoard;
           boards = gameState.boards;
@@ -1124,45 +1150,39 @@
           gameWinner = gameState.gameWinner;
           gameActive = gameState.gameActive;
           winningCombination = gameState.winningCombination;
+          lastMove = gameState.lastMove || {
+            boardIndex: -1,
+            cellIndex: -1,
+            player: '',
+          };
 
-          // Restore last move information
-          if (gameState.lastMove) {
-            lastMove = gameState.lastMove;
-          } else {
-            // For backwards compatibility with older saved games
-            lastMove = { boardIndex: -1, cellIndex: -1, player: '' };
-          }
-
-          // Recreate the board UI
+          superBoard.innerHTML = '';
           recreateGameUI();
-
-          // Hide the coin flip modal when loading a saved game
           coinFlipModal.style.display = 'none';
 
-          // If it's AI's turn in AI vs AI mode, trigger a move
-          if (gameActive && gameSettings.gameMode === 'aivsai') {
-            pendingAIMove = setTimeout(() => {
-              pendingAIMove = null;
-              if (currentPlayer === 'x') {
-                aiMakeMoveAsX();
-              } else {
-                aiMakeMove();
-              }
-            }, 1000);
-          } else if (
+          // Trigger AI move if loaded state requires it (Human vs AI only)
+          if (
             gameActive &&
-            currentPlayer === 'o' &&
-            gameSettings.gameMode === 'ai'
+            !gameWinner &&
+            gameSettings.gameMode === 'ai' &&
+            currentPlayer === 'o'
           ) {
+            aiThinking.classList.add('show');
             pendingAIMove = setTimeout(() => {
               pendingAIMove = null;
+              if (!gameActive || gameWinner) {
+                aiThinking.classList.remove('show');
+                return;
+              }
               aiMakeMove();
-            }, 1000);
+            }, 800);
           }
 
+          console.log('Loaded saved game state');
           return true;
         } catch (error) {
           console.error('Error loading saved game:', error);
+          localStorage.removeItem('ticTacSquaredState');
           return false;
         }
       }
@@ -1170,169 +1190,164 @@
       // Clear saved game state
       function clearSavedGameState() {
         localStorage.removeItem('ticTacSquaredState');
+        console.log('Cleared saved game state.');
       }
 
       // Recreate the board UI from the current game state
       function recreateGameUI() {
-        // Create all boards and cells with current state
         for (let i = 0; i < 9; i++) {
           const board = document.createElement('div');
           board.className = 'board';
           board.dataset.index = i;
-
-          // Create cells for this board first
           for (let j = 0; j < 9; j++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.dataset.board = i;
             cell.dataset.cell = j;
             cell.addEventListener('click', handleCellClick);
-
-            // Add cell content if occupied
             if (boards[i][j] === 'x') {
               cell.classList.add('x', 'occupied');
               cell.innerHTML = '<i class="fas fa-times fa-lg"></i>';
+              cell.style.color = gameSettings.xColor;
             } else if (boards[i][j] === 'o') {
               cell.classList.add('o', 'occupied');
               cell.innerHTML = '<i class="far fa-circle"></i>';
+              cell.style.color = gameSettings.oColor;
             }
-
             board.appendChild(cell);
           }
-
-          // Now that cells exist, add board winner class and fade cells if applicable
+          let boardOpacity = '1';
           if (boardWinners[i] === 'x') {
             board.classList.add('won-x');
             board.style.borderColor = gameSettings.xColor;
             board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
-
-            // Fade all cells in this board
-            const cells = board.querySelectorAll('.cell');
-            cells.forEach(cell => {
-              cell.style.opacity = '0.6';
-            });
+            boardOpacity = '0.6';
           } else if (boardWinners[i] === 'o') {
             board.classList.add('won-o');
             board.style.borderColor = gameSettings.oColor;
             board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
-
-            // Fade all cells in this board
-            const cells = board.querySelectorAll('.cell');
-            cells.forEach(cell => {
-              cell.style.opacity = '0.6';
-            });
+            boardOpacity = '0.6';
           } else if (boardWinners[i] === 'tie') {
             board.classList.add('tie');
-
-            // Fade all cells in this board
-            const cells = board.querySelectorAll('.cell');
-            cells.forEach(cell => {
-              cell.style.opacity = '0.6';
+            boardOpacity = '0.6';
+          }
+          if (boardOpacity !== '1') {
+            board.querySelectorAll('.cell').forEach(cell => {
+              cell.style.opacity = boardOpacity;
             });
           }
-
           superBoard.appendChild(board);
         }
 
-        // Update player display
         playerXDisplay.classList.toggle('active', currentPlayer === 'x');
         playerODisplay.classList.toggle('active', currentPlayer === 'o');
-
-        // Update colors based on settings
-        updateColors();
-
-        // Update active boards highlighting
         updateActiveBoards();
 
-        // If game is over, show game over screen
-        if (gameWinner !== '') {
-          if (gameWinner === 'x') {
-            if (gameSettings.gameMode === 'aivsai') {
-              gameOverMessage.textContent = 'AI X Wins!';
-            } else if (gameSettings.gameMode === 'ai') {
-              gameOverMessage.textContent = 'You Win!';
-            } else {
-              gameOverMessage.textContent = 'Player X Wins!';
-            }
-            gameOverMessage.className = 'game-over-message x';
-          } else if (gameWinner === 'o') {
-            if (gameSettings.gameMode === 'aivsai') {
-              gameOverMessage.textContent = 'AI O Wins!';
-            } else if (gameSettings.gameMode === 'ai') {
-              gameOverMessage.textContent = 'AI Wins!';
-            } else {
-              gameOverMessage.textContent = 'Player O Wins!';
-            }
-            gameOverMessage.className = 'game-over-message o';
-          } else {
-            gameOverMessage.textContent = 'Game Tied!';
-            gameOverMessage.className = 'game-over-message tie';
-          }
-
-          // Draw super board winning line if there's a winner
+        if (gameWinner) {
+          displayEndGameMessage();
           if (winningCombination && gameWinner !== 'tie') {
-            drawSuperWinningLine(winningCombination);
+            setTimeout(() => drawSuperWinningLine(winningCombination), 100);
           }
-
           gameOver.classList.add('show');
+        } else if (!gameActive && currentPlayer) {
+          playerXDisplay.classList.toggle('active', currentPlayer === 'x');
+          playerODisplay.classList.toggle('active', currentPlayer === 'o');
+          updateActiveBoards();
         }
 
-        // Redraw winning lines for boards
         for (let i = 0; i < 9; i++) {
           if (boardWinners[i] === 'x' || boardWinners[i] === 'o') {
             const winningCombo = findWinningCombo(i);
-            if (winningCombo) drawWinningLine(i, winningCombo);
+            if (winningCombo) {
+              setTimeout(() => drawWinningLine(i, winningCombo), 100);
+            }
           }
         }
-
-        // Find and highlight the last move if the game is in progress
-        if (gameActive) {
-          findAndHighlightLastMove();
-        }
+        findAndHighlightLastMove();
       }
 
-      // Find winning combo for a board (for UI recreation)
+      // Find winning combo for a board
       function findWinningCombo(boardIndex) {
+        if (
+          boardWinners[boardIndex] !== 'x' &&
+          boardWinners[boardIndex] !== 'o'
+        )
+          return null;
         const board = boards[boardIndex];
         const winningCombos = [
           [0, 1, 2],
           [3, 4, 5],
-          [6, 7, 8], // rows
+          [6, 7, 8],
           [0, 3, 6],
           [1, 4, 7],
-          [2, 5, 8], // columns
+          [2, 5, 8],
           [0, 4, 8],
-          [2, 4, 6], // diagonals
+          [2, 4, 6],
         ];
-
         for (const combo of winningCombos) {
           const [a, b, c] = combo;
-          if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          if (
+            board[a] === boardWinners[boardIndex] &&
+            board[b] === boardWinners[boardIndex] &&
+            board[c] === boardWinners[boardIndex]
+          ) {
             return combo;
           }
         }
-
+        console.warn(
+          `Could not find winning combo for board ${boardIndex} marked as won by ${boardWinners[boardIndex]}`,
+        );
         return null;
       }
 
-      // Update initGame to clear saved state and start a new game
+      // --- Coin Flip Logic ---
+      function flipCoin() {
+        coin.classList.remove('flipping');
+        coinResult.textContent = '';
+        void coin.offsetWidth;
+        coin.classList.add('flipping');
+        setTimeout(() => {
+          const randomResult = Math.random();
+          const winner = randomResult < 0.5 ? 'x' : 'o';
+          const finalRotation = winner === 'x' ? 3600 : 3600 + 180;
+          coin.style.transform = `rotateY(${finalRotation}deg) rotateX(3600deg)`;
+          coinResult.innerHTML = `<span style="color: ${winner === 'x' ? gameSettings.xColor : gameSettings.oColor}; font-weight: bold;">${winner.toUpperCase()} goes first!</span>`;
+          setTimeout(() => {
+            coinFlipModal.style.display = 'none';
+            startGame(winner);
+          }, 1500);
+        }, 1500);
+      }
+
+      // --- Game Start Logic (after coin flip) ---
+      function startGame(startingPlayer) {
+        currentPlayer = startingPlayer;
+        gameActive = true;
+        activeBoard = null;
+        playerXDisplay.classList.toggle('active', currentPlayer === 'x');
+        playerODisplay.classList.toggle('active', currentPlayer === 'o');
+        updateActiveBoards();
+        saveGameState();
+        // Trigger AI move only if AI (O) starts in Human vs AI mode
+        if (gameSettings.gameMode === 'ai' && currentPlayer === 'o') {
+          aiThinking.classList.add('show');
+          pendingAIMove = setTimeout(() => {
+            pendingAIMove = null;
+            if (!gameActive) return;
+            aiMakeMove();
+          }, 800);
+        }
+      }
+
+      // Update initGame to clear saved state and start the coin flip process
       function initGame() {
-        // Clear any pending AI moves
         if (pendingAIMove !== null) {
           clearTimeout(pendingAIMove);
           pendingAIMove = null;
         }
-
-        // Clear saved game state
         clearSavedGameState();
-
-        // Clear the super board
         superBoard.innerHTML = '';
-
-        // Clear any existing winning lines
         document.querySelectorAll('.winning-line').forEach(el => el.remove());
-
-        // Reset game state
         currentPlayer = '';
         activeBoard = null;
         boards = Array(9)
@@ -1343,40 +1358,15 @@
         gameActive = false;
         winningCombination = null;
         lastMove = { boardIndex: -1, cellIndex: -1, player: '' };
-
-        // Update player display
         playerXDisplay.classList.remove('active');
         playerODisplay.classList.remove('active');
-
-        // Update player icons based on game mode
-        if (gameSettings.gameMode === 'ai') {
-          playerODisplay.innerHTML =
-            '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
-          playerXDisplay.innerHTML =
-            '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
-        } else if (gameSettings.gameMode === 'aivsai') {
-          playerODisplay.innerHTML =
-            '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
-          playerXDisplay.innerHTML =
-            '<i class="fas fa-robot"></i> <i class="fas fa-times fa-lg"></i>';
-        } else {
-          playerODisplay.innerHTML =
-            '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
-          playerXDisplay.innerHTML =
-            '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
-        }
-
-        // Hide game over screen
+        updateColors();
         gameOver.classList.remove('show');
         aiThinking.classList.remove('show');
-
-        // Create all boards and cells
         for (let i = 0; i < 9; i++) {
           const board = document.createElement('div');
           board.className = 'board';
           board.dataset.index = i;
-
-          // Create cells for this board
           for (let j = 0; j < 9; j++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
@@ -1385,66 +1375,66 @@
             cell.addEventListener('click', handleCellClick);
             board.appendChild(cell);
           }
-
           superBoard.appendChild(board);
         }
-
-        // Update colors based on settings
-        updateColors();
-
-        // Show coin flip modal and start the flip
         coinFlipModal.style.display = 'flex';
         flipCoin();
       }
 
       // Handle cell click event
       function handleCellClick(event) {
-        // Only proceed if game is active
-        if (!gameActive) return;
-
-        // Prevent human from making a move on AI's turn
-        if (currentPlayer === 'o' && gameSettings.gameMode === 'ai') return;
-
-        const cell = event.currentTarget;
-        const boardIndex = parseInt(cell.dataset.board);
-        const cellIndex = parseInt(cell.dataset.cell);
-
-        // Check if cell is already occupied
+        if (!gameActive || gameWinner) return;
+        const cellElement = event.currentTarget;
+        const boardIndex = parseInt(cellElement.dataset.board);
+        const cellIndex = parseInt(cellElement.dataset.cell);
+        // Determine if it's a human player's turn
+        const isHumanTurn =
+          gameSettings.gameMode === 'human' ||
+          (gameSettings.gameMode === 'ai' && currentPlayer === 'x');
+        if (!isHumanTurn) {
+          console.log('Not human turn, click ignored.');
+          return;
+        }
         if (boards[boardIndex][cellIndex] !== '') return;
+        const boardElement = cellElement.closest('.board');
+        if (!boardElement.classList.contains('active')) return;
 
-        // Check if this board is active
-        const board = cell.closest('.board');
-        if (!board.classList.contains('active')) return;
-
-        // Make the move
         makeMove(boardIndex, cellIndex, currentPlayer);
 
-        // If game is still active and it's AI's turn, make AI move
+        // Trigger AI move if applicable (Human vs AI mode, and now it's O's turn)
         if (
           gameActive &&
-          currentPlayer === 'o' &&
-          gameSettings.gameMode === 'ai'
+          !gameWinner &&
+          gameSettings.gameMode === 'ai' &&
+          currentPlayer === 'o'
         ) {
-          setTimeout(function () {
+          aiThinking.classList.add('show');
+          if (pendingAIMove !== null) {
+            clearTimeout(pendingAIMove);
+            pendingAIMove = null;
+          }
+          pendingAIMove = setTimeout(() => {
+            pendingAIMove = null;
+            if (!gameActive || gameWinner) {
+              aiThinking.classList.remove('show');
+              return;
+            }
             aiMakeMove();
-          }, 500);
+          }, 800);
         }
       }
 
-      // Update makeMove to track lastMove and manage AI move timeouts
+      // Make a move (called by human click or AI)
       function makeMove(boardIndex, cellIndex, player) {
-        // Update game state
+        if (!gameActive || gameWinner || boards[boardIndex][cellIndex] !== '') {
+          console.warn(
+            `Invalid move attempt: b${boardIndex}, c${cellIndex} by ${player}`,
+          );
+          return;
+        }
         boards[boardIndex][cellIndex] = player;
-
-        // Remove last-move class from any previous cells
-        document.querySelectorAll('.cell.last-move').forEach(cell => {
-          cell.classList.remove('last-move');
-        });
-
-        // Update lastMove tracking
-        lastMove = { boardIndex, cellIndex, player };
-
-        // Update UI
+        const lastCell = document.querySelector('.cell.last-move');
+        if (lastCell) lastCell.classList.remove('last-move');
         const cell = document.querySelector(
           `.cell[data-board="${boardIndex}"][data-cell="${cellIndex}"]`,
         );
@@ -1453,285 +1443,263 @@
           player === 'x'
             ? '<i class="fas fa-times fa-lg"></i>'
             : '<i class="far fa-circle"></i>';
+        cell.style.color =
+          player === 'x' ? gameSettings.xColor : gameSettings.oColor;
+        lastMove = { boardIndex, cellIndex, player };
+        if (boardWinners[boardIndex] === '') {
+          checkBoardWinner(boardIndex);
+        }
 
-        // Check if this board has a winner
-        checkBoardWinner(boardIndex);
-
-        // Switch active board to the cell index that was just clicked
-        // Unless that board is already won or free play is enabled
+        const nextPlayer = player === 'x' ? 'o' : 'x';
+        let nextActiveBoard = null;
         if (gameSettings.rules === 'standard') {
-          activeBoard = boardWinners[cellIndex] === '' ? cellIndex : null;
+          nextActiveBoard = boardWinners[cellIndex] === '' ? cellIndex : null;
         } else {
-          activeBoard = null;
+          nextActiveBoard = null;
         }
 
-        // Update active boards highlighting
-        updateActiveBoards();
+        checkGameWinner(); // Check winner *before* switching player perspective
 
-        // Switch player
-        currentPlayer = currentPlayer === 'x' ? 'o' : 'x';
-
-        // Update player display
-        playerXDisplay.classList.toggle('active');
-        playerODisplay.classList.toggle('active');
-
-        // Check if game has a winner
-        checkGameWinner();
-
-        // Save game state
+        if (gameActive && !gameWinner) {
+          currentPlayer = nextPlayer;
+          activeBoard = nextActiveBoard;
+          playerXDisplay.classList.toggle('active', currentPlayer === 'x');
+          playerODisplay.classList.toggle('active', currentPlayer === 'o');
+          updateActiveBoards();
+        } else if (gameWinner) {
+          playerXDisplay.classList.remove('active');
+          playerODisplay.classList.remove('active');
+          updateActiveBoards();
+        }
         saveGameState();
+      }
 
-        // If game is still active and it's AI's turn in AI vs AI mode, make AI move
-        if (gameActive && gameSettings.gameMode === 'aivsai') {
-          // Clear any existing timeouts first
-          if (pendingAIMove !== null) {
-            clearTimeout(pendingAIMove);
-            pendingAIMove = null;
-          }
-
-          pendingAIMove = setTimeout(function () {
-            pendingAIMove = null;
-            if (currentPlayer === 'x') {
-              aiMakeMoveAsX();
-            } else {
-              aiMakeMove();
-            }
-          }, 1000); // Slightly longer delay for AI vs AI to see moves better
-        } else if (
-          gameActive &&
-          currentPlayer === 'o' &&
-          gameSettings.gameMode === 'ai'
+      // Find and highlight the last move made
+      function findAndHighlightLastMove() {
+        document.querySelectorAll('.cell.last-move').forEach(cell => {
+          cell.classList.remove('last-move');
+        });
+        if (
+          lastMove &&
+          lastMove.boardIndex !== -1 &&
+          lastMove.cellIndex !== -1
         ) {
-          // Clear any existing timeouts first
-          if (pendingAIMove !== null) {
-            clearTimeout(pendingAIMove);
-            pendingAIMove = null;
+          const lastCellElement = document.querySelector(
+            `.cell[data-board="${lastMove.boardIndex}"][data-cell="${lastMove.cellIndex}"]`,
+          );
+          if (lastCellElement) {
+            lastCellElement.classList.add('last-move');
           }
-
-          pendingAIMove = setTimeout(function () {
-            pendingAIMove = null;
-            aiMakeMove();
-          }, 500);
         }
       }
 
-      // Add a wrapper function to initialize the game
-      function initializeGame() {
-        // Set up modal outside click listeners
-        setupModalOutsideClickListeners();
-
-        // Try to load saved game state first
-        if (loadGameState()) {
-          console.log('Loaded saved game state');
-          return;
-        }
-
-        // If no saved state or loading fails, start a new game with coin flip
-        initGame();
-      }
-
-      // Update endGame to save the final state
-      function endGame() {
-        gameActive = false;
-
-        // Show game over message
+      // Function to display the end game message
+      function displayEndGameMessage() {
         if (gameWinner === 'x') {
-          if (gameSettings.gameMode === 'aivsai') {
-            gameOverMessage.textContent = 'AI X Wins!';
-          } else if (gameSettings.gameMode === 'ai') {
+          // Removed AIvAI check
+          if (gameSettings.gameMode === 'ai')
             gameOverMessage.textContent = 'You Win!';
-          } else {
-            gameOverMessage.textContent = 'Player X Wins!';
-          }
+          else gameOverMessage.textContent = 'Player X Wins!';
           gameOverMessage.className = 'game-over-message x';
         } else if (gameWinner === 'o') {
-          if (gameSettings.gameMode === 'aivsai') {
-            gameOverMessage.textContent = 'AI O Wins!';
-          } else if (gameSettings.gameMode === 'ai') {
+          // Removed AIvAI check
+          if (gameSettings.gameMode === 'ai')
             gameOverMessage.textContent = 'AI Wins!';
-          } else {
-            gameOverMessage.textContent = 'Player O Wins!';
-          }
+          else gameOverMessage.textContent = 'Player O Wins!';
           gameOverMessage.className = 'game-over-message o';
         } else {
           gameOverMessage.textContent = 'Game Tied!';
           gameOverMessage.className = 'game-over-message tie';
         }
+      }
 
-        // Draw super board winning line if there's a winner
-        if (winningCombination) {
-          drawSuperWinningLine(winningCombination);
+      // Update endGame to use the display function and save state
+      function endGame() {
+        if (!gameActive) return;
+        gameActive = false;
+        aiThinking.classList.remove('show');
+        if (pendingAIMove) {
+          clearTimeout(pendingAIMove);
+          pendingAIMove = null;
         }
-
-        // Save final game state
+        playerXDisplay.classList.remove('active');
+        playerODisplay.classList.remove('active');
+        document
+          .querySelectorAll('.board.active')
+          .forEach(b => b.classList.remove('active'));
+        displayEndGameMessage();
+        if (winningCombination && gameWinner !== 'tie') {
+          setTimeout(() => drawSuperWinningLine(winningCombination), 100);
+        }
         saveGameState();
-
         gameOver.classList.add('show');
       }
 
       // Check if a board has a winner
       function checkBoardWinner(boardIndex) {
-        const board = boards[boardIndex];
+        if (boardWinners[boardIndex] !== '') return;
+        const boardState = boards[boardIndex];
         const winningCombos = [
           [0, 1, 2],
           [3, 4, 5],
-          [6, 7, 8], // rows
+          [6, 7, 8],
           [0, 3, 6],
           [1, 4, 7],
-          [2, 5, 8], // columns
+          [2, 5, 8],
           [0, 4, 8],
-          [2, 4, 6], // diagonals
+          [2, 4, 6],
         ];
-
-        // Check for winner
         for (const combo of winningCombos) {
           const [a, b, c] = combo;
-          if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-            boardWinners[boardIndex] = board[a];
+          if (
+            boardState[a] &&
+            boardState[a] === boardState[b] &&
+            boardState[a] === boardState[c]
+          ) {
+            boardWinners[boardIndex] = boardState[a];
             updateBoardUI(boardIndex, combo);
             return;
           }
         }
-
-        // Check for tie
-        if (!board.includes('')) {
+        if (!boardState.includes('')) {
           boardWinners[boardIndex] = 'tie';
           updateBoardUI(boardIndex);
         }
       }
 
-      // Update board UI when it's won
+      // Check if a temporary board state has a winner ('x', 'o', 'tie', or '')
+      function checkTempBoardWinner(boardState) {
+        const winningCombos = [
+          [0, 1, 2],
+          [3, 4, 5],
+          [6, 7, 8],
+          [0, 3, 6],
+          [1, 4, 7],
+          [2, 5, 8],
+          [0, 4, 8],
+          [2, 4, 6],
+        ];
+        for (const combo of winningCombos) {
+          const [a, b, c] = combo;
+          if (
+            boardState[a] &&
+            boardState[a] === boardState[b] &&
+            boardState[a] === boardState[c]
+          ) {
+            return boardState[a];
+          }
+        }
+        if (!boardState.includes('')) {
+          return 'tie';
+        }
+        return '';
+      }
+
+      // Update board UI when it's won or tied
       function updateBoardUI(boardIndex, winningCombo = null) {
-        const board = document.querySelector(
+        const boardElement = document.querySelector(
           `.board[data-index="${boardIndex}"]`,
         );
-
+        if (!boardElement) return;
+        let boardOpacity = '1';
+        boardElement.classList.remove('won-x', 'won-o', 'tie');
+        boardElement.style.backgroundColor = '';
+        boardElement.style.borderColor = '';
         if (boardWinners[boardIndex] === 'x') {
-          board.classList.add('won-x');
-          board.style.borderColor = gameSettings.xColor;
-          // Set background color with opacity
-          board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
-
-          // Fade all X's and O's in this board
-          board.querySelectorAll('.cell').forEach(cell => {
-            cell.style.opacity = '0.6';
-          });
+          boardElement.classList.add('won-x');
+          boardElement.style.borderColor = gameSettings.xColor;
+          boardElement.style.backgroundColor = hexToRGBA(
+            gameSettings.xColor,
+            0.2,
+          );
+          boardOpacity = '0.6';
         } else if (boardWinners[boardIndex] === 'o') {
-          board.classList.add('won-o');
-          board.style.borderColor = gameSettings.oColor;
-          // Set background color with opacity
-          board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
-
-          // Fade all X's and O's in this board
-          board.querySelectorAll('.cell').forEach(cell => {
-            cell.style.opacity = '0.6';
-          });
+          boardElement.classList.add('won-o');
+          boardElement.style.borderColor = gameSettings.oColor;
+          boardElement.style.backgroundColor = hexToRGBA(
+            gameSettings.oColor,
+            0.2,
+          );
+          boardOpacity = '0.6';
         } else if (boardWinners[boardIndex] === 'tie') {
-          board.classList.add('tie');
-
-          // Fade all X's and O's in this board
-          board.querySelectorAll('.cell').forEach(cell => {
-            cell.style.opacity = '0.6';
-          });
+          boardElement.classList.add('tie');
+          boardOpacity = '0.6';
         }
-
-        // If there's a winning combo, draw the line
+        boardElement.querySelectorAll('.cell').forEach(cell => {
+          cell.style.opacity = boardOpacity;
+          if (boardOpacity !== '1') {
+            cell.style.cursor = 'default';
+          }
+        });
         if (winningCombo) {
-          drawWinningLine(boardIndex, winningCombo);
+          const existingLine = boardElement.querySelector('.winning-line');
+          if (existingLine) existingLine.remove();
+          setTimeout(() => drawWinningLine(boardIndex, winningCombo), 50);
         }
       }
 
-      // Draw winning line on a board - fixed positioning for better centering
+      // Draw winning line on a board
       function drawWinningLine(boardIndex, combo) {
-        const board = document.querySelector(
+        const boardElement = document.querySelector(
           `.board[data-index="${boardIndex}"]`,
         );
-        const boardRect = board.getBoundingClientRect();
-        const cellSize = boardRect.width / 3;
-
-        // Get positions of the winning cells
-        const [a, b, c] = combo;
+        if (!boardElement || !combo) return;
+        const existingLine = boardElement.querySelector('.winning-line');
+        if (existingLine) return;
+        const boardWidth = boardElement.offsetWidth;
+        const boardHeight = boardElement.offsetHeight;
+        const gap = 5;
+        const padding = 5;
+        const cellWidth = (boardWidth - 2 * padding - 2 * gap) / 3;
+        const cellHeight = (boardHeight - 2 * padding - 2 * gap) / 3;
+        const lineThickness = 4;
+        const [a, c] = [combo[0], combo[2]];
         const aCol = a % 3;
         const aRow = Math.floor(a / 3);
         const cCol = c % 3;
         const cRow = Math.floor(c / 3);
-
-        // Calculate start and end points
-        let startX, startY, endX, endY;
-
-        // For rows - ensure horizontal lines are centered vertically in each row
-        if (aRow === cRow) {
-          startX = cellSize * 0.1; // Small offset from left edge
-
-          // Calculate the exact center of the row
-          startY = aRow * cellSize + cellSize / 2;
-
-          endX = boardRect.width - cellSize * 0.1; // Small offset from right edge
-          endY = startY;
-        }
-        // For columns - ensure vertical lines are centered horizontally in each column
-        else if (aCol === cCol) {
-          // Calculate the exact center of the column
-          startX = aCol * cellSize + cellSize / 2;
-
-          startY = cellSize * 0.1; // Small offset from top edge
-          endX = startX;
-          endY = boardRect.height - cellSize * 0.1; // Small offset from bottom edge
-        }
-        // For diagonals - keep the current implementation as requested
-        else {
-          if (a === 0 || c === 0) {
-            // Top-left to bottom-right diagonal
-            startX = cellSize * 0.1 + 2;
-            startY = cellSize * 0.1 - 0; // Shifted up at start
-            endX = boardRect.width - cellSize + 395 * 0.1 + 1;
-            endY = boardRect.height - cellSize + 395 * 0.1 - 1; // Shifted up more at end
-          } else {
-            // Top-right to bottom-left diagonal
-            startX = boardRect.width - cellSize * 0.1 - 8;
-            startY = cellSize * 0.1 + 0; // Shifted up at start
-            endX = cellSize * 0.1 + 2;
-            endY = boardRect.height - cellSize * 0.1 - 10; // Shifted up more at end
-          }
-        }
-
-        // Create the line element
+        const startXCenter = padding + aCol * (cellWidth + gap) + cellWidth / 2;
+        const startYCenter =
+          padding + aRow * (cellHeight + gap) + cellHeight / 2;
+        const endXCenter = padding + cCol * (cellWidth + gap) + cellWidth / 2;
+        const endYCenter = padding + cRow * (cellHeight + gap) + cellHeight / 2;
+        const deltaX = endXCenter - startXCenter;
+        const deltaY = endYCenter - startYCenter;
+        const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const angleRad = Math.atan2(deltaY, deltaX);
         const line = document.createElement('div');
         line.className = 'winning-line';
-        line.style.width = `${Math.sqrt(
-          Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2),
-        )}px`;
-        line.style.height = '4px'; // line thickness
-        line.style.left = `${startX}px`;
-        line.style.top = `${startY}px`;
-        line.style.transform = `rotate(${Math.atan2(endY - startY, endX - startX)}rad)`;
-        line.style.transformOrigin = '0 50%'; // Center the line vertically
+        line.style.width = `${length}px`;
+        line.style.height = `${lineThickness}px`;
+        line.style.left = `${startXCenter}px`;
+        line.style.top = `${startYCenter - lineThickness / 2}px`;
+        line.style.transform = `rotate(${angleRad}rad)`;
+        line.style.transformOrigin = `0 ${lineThickness / 2}px`;
         line.style.backgroundColor =
           boardWinners[boardIndex] === 'x'
             ? gameSettings.xColor
             : gameSettings.oColor;
-
-        board.appendChild(line);
+        boardElement.appendChild(line);
       }
 
       // Check if the game has a winner
       function checkGameWinner() {
+        if (gameWinner) return;
         const winningCombos = [
           [0, 1, 2],
           [3, 4, 5],
-          [6, 7, 8], // rows
+          [6, 7, 8],
           [0, 3, 6],
           [1, 4, 7],
-          [2, 5, 8], // columns
+          [2, 5, 8],
           [0, 4, 8],
-          [2, 4, 6], // diagonals
+          [2, 4, 6],
         ];
-
-        // Check for winner
         for (const combo of winningCombos) {
           const [a, b, c] = combo;
           if (
             boardWinners[a] &&
+            boardWinners[a] !== 'tie' &&
             boardWinners[a] === boardWinners[b] &&
             boardWinners[a] === boardWinners[c]
           ) {
@@ -1741,581 +1709,463 @@
             return;
           }
         }
-
-        // Check for tie
-        if (!boardWinners.includes('')) {
-          gameWinner = 'tie';
-          endGame();
-        }
-      }
-
-      // End the game
-      function endGame() {
-        gameActive = false;
-
-        // Show game over message
-        if (gameWinner === 'x') {
-          if (gameSettings.gameMode === 'aivsai') {
-            gameOverMessage.textContent = 'AI X Wins!';
-          } else if (gameSettings.gameMode === 'ai') {
-            gameOverMessage.textContent = 'You Win!';
-          } else {
-            gameOverMessage.textContent = 'Player X Wins!';
+        if (boardWinners.every(winner => winner !== '')) {
+          let foundWinner = false;
+          for (const combo of winningCombos) {
+            const [a, b, c] = combo;
+            if (
+              boardWinners[a] &&
+              boardWinners[a] !== 'tie' &&
+              boardWinners[a] === boardWinners[b] &&
+              boardWinners[a] === boardWinners[c]
+            ) {
+              foundWinner = true;
+              gameWinner = boardWinners[a];
+              winningCombination = combo;
+              break;
+            }
           }
-          gameOverMessage.className = 'game-over-message x';
-        } else if (gameWinner === 'o') {
-          if (gameSettings.gameMode === 'aivsai') {
-            gameOverMessage.textContent = 'AI O Wins!';
-          } else if (gameSettings.gameMode === 'ai') {
-            gameOverMessage.textContent = 'AI Wins!';
+          if (!foundWinner) {
+            gameWinner = 'tie';
+            winningCombination = null;
+            endGame();
           } else {
-            gameOverMessage.textContent = 'Player O Wins!';
+            endGame();
           }
-          gameOverMessage.className = 'game-over-message o';
-        } else {
-          gameOverMessage.textContent = 'Game Tied!';
-          gameOverMessage.className = 'game-over-message tie';
         }
-
-        // Draw super board winning line if there's a winner
-        if (winningCombination) {
-          drawSuperWinningLine(winningCombination);
-        }
-
-        // Save final game state
-        saveGameState();
-
-        gameOver.classList.add('show');
       }
 
       // Draw winning line on the super board
       function drawSuperWinningLine(combo) {
-        const superBoardRect = superBoard.getBoundingClientRect();
-        const boardSize = superBoardRect.width / 3;
-
-        // Get positions of the winning boards
-        const [a, b, c] = combo;
+        if (!superBoard || !combo) return;
+        superBoard
+          .querySelectorAll(':scope > .winning-line')
+          .forEach(line => line.remove());
+        const boardWidth = superBoard.offsetWidth / 3;
+        const boardHeight = superBoard.offsetHeight / 3;
+        const lineThickness = 6;
+        const [a, c] = [combo[0], combo[2]];
         const aCol = a % 3;
         const aRow = Math.floor(a / 3);
         const cCol = c % 3;
         const cRow = Math.floor(c / 3);
-
-        // Calculate start and end points
-        let startX, startY, endX, endY;
-
-        // For rows
-        if (aRow === cRow) {
-          startX = 5; // Small offset from edge
-          startY = (aRow + 0.5) * boardSize;
-          endX = superBoardRect.width - 5; // Small offset from edge
-          endY = startY;
-        }
-        // For columns
-        else if (aCol === cCol) {
-          startX = (aCol + 0.5) * boardSize;
-          startY = 5; // Small offset from edge
-          endX = startX;
-          endY = superBoardRect.height - 5; // Small offset from edge
-        }
-        // For diagonals
-        else {
-          if (a === 0 || c === 0) {
-            // Top-left to bottom-right
-            startX = 5;
-            startY = 5;
-            endX = superBoardRect.width - 5;
-            endY = superBoardRect.height - 5;
-          } else {
-            // Top-right to bottom-left
-            startX = superBoardRect.width - 5;
-            startY = 5;
-            endX = 5;
-            endY = superBoardRect.height - 5;
-          }
-        }
-
-        // Create the line element
+        const startXCenter = aCol * boardWidth + boardWidth / 2;
+        const startYCenter = aRow * boardHeight + boardHeight / 2;
+        const endXCenter = cCol * boardWidth + boardWidth / 2;
+        const endYCenter = cRow * boardHeight + boardHeight / 2;
+        const deltaX = endXCenter - startXCenter;
+        const deltaY = endYCenter - startYCenter;
+        const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY) * 0.95;
+        const angleRad = Math.atan2(deltaY, deltaX);
+        const offset = Math.sqrt(deltaX * deltaX + deltaY * deltaY) * 0.025;
+        const adjustedStartX = startXCenter + offset * Math.cos(angleRad);
+        const adjustedStartY = startYCenter + offset * Math.sin(angleRad);
         const line = document.createElement('div');
         line.className = 'winning-line';
-        line.style.width = `${Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2))}px`;
-        line.style.height = '6px';
-        line.style.left = `${startX}px`;
-        line.style.top = `${startY}px`;
-        line.style.transform = `rotate(${Math.atan2(endY - startY, endX - startX)}rad)`;
+        line.style.position = 'absolute';
+        line.style.width = `${length}px`;
+        line.style.height = `${lineThickness}px`;
+        line.style.left = `${adjustedStartX}px`;
+        line.style.top = `${adjustedStartY - lineThickness / 2}px`;
+        line.style.transform = `rotate(${angleRad}rad)`;
+        line.style.transformOrigin = `0 ${lineThickness / 2}px`;
         line.style.backgroundColor =
           gameWinner === 'x' ? gameSettings.xColor : gameSettings.oColor;
-
+        line.style.zIndex = '10';
         superBoard.appendChild(line);
       }
 
-      // Update which boards are active
+      // Update which boards are active and highlight them
       function updateActiveBoards() {
-        // Remove active class from all boards
         document.querySelectorAll('.board').forEach(board => {
           board.classList.remove('active');
+          board.querySelectorAll('.cell:not(.occupied)').forEach(cell => {
+            cell.style.cursor = 'default';
+          });
         });
-
-        // If game is over, no active boards
-        if (!gameActive) return;
-
-        // If no specific board is active (start of game or previous move sent to won board)
+        if (!gameActive || gameWinner) {
+          return;
+        }
+        let activeBoardIndexes = [];
         if (activeBoard === null) {
-          // All non-won boards are active
-          document.querySelectorAll('.board').forEach((board, index) => {
-            if (boardWinners[index] === '') {
-              board.classList.add('active');
+          boardWinners.forEach((winner, index) => {
+            if (winner === '') {
+              activeBoardIndexes.push(index);
             }
           });
         } else {
-          // Only the specified board is active (if it's not already won)
           if (boardWinners[activeBoard] === '') {
-            document
-              .querySelector(`.board[data-index="${activeBoard}"]`)
-              .classList.add('active');
+            activeBoardIndexes.push(activeBoard);
           } else {
-            // If the target board is already won, any non-won board is active
-            activeBoard = null;
-            updateActiveBoards();
+            boardWinners.forEach((winner, index) => {
+              if (winner === '') {
+                activeBoardIndexes.push(index);
+              }
+            });
           }
         }
-      }
-
-      // AI makes a move
-      function aiMakeMove() {
-        // Show thinking indicator
-        aiThinking.classList.add('show');
-
-        // Clear any pending AI moves first
-        if (pendingAIMove !== null) {
-          clearTimeout(pendingAIMove);
-          pendingAIMove = null;
-        }
-
-        // Simulate thinking delay
-        pendingAIMove = setTimeout(
-          () => {
-            pendingAIMove = null;
-            let boardIndex, cellIndex;
-
-            // If a specific board is active, play there
-            if (activeBoard !== null && boardWinners[activeBoard] === '') {
-              boardIndex = activeBoard;
-              cellIndex = findBestMove(boardIndex);
-            } else {
-              // Find the best move across all available boards
-              const availableBoards = [];
-              for (let i = 0; i < 9; i++) {
-                if (boardWinners[i] === '') {
-                  availableBoards.push(i);
-                }
-              }
-
-              // If no boards available (shouldn't happen as game would be over)
-              if (availableBoards.length === 0) return;
-
-              // Try to find a winning move or block opponent's winning move
-              let foundMove = false;
-
-              // First, check if AI can win the game by winning a board
-              if (gameSettings.difficulty !== 'easy') {
-                for (const b of availableBoards) {
-                  const tempBoard = [...boards[b]];
-                  for (let c = 0; c < 9; c++) {
-                    if (tempBoard[c] === '') {
-                      tempBoard[c] = 'o';
-                      if (checkTempBoardWinner(tempBoard) === 'o') {
-                        boardIndex = b;
-                        cellIndex = c;
-                        foundMove = true;
-                        break;
-                      }
-                      tempBoard[c] = '';
-                    }
-                  }
-                  if (foundMove) break;
-                }
-              }
-
-              // If not, check if player can win a board and block them
-              if (!foundMove && gameSettings.difficulty !== 'easy') {
-                for (const b of availableBoards) {
-                  const tempBoard = [...boards[b]];
-                  for (let c = 0; c < 9; c++) {
-                    if (tempBoard[c] === '') {
-                      tempBoard[c] = 'x';
-                      if (checkTempBoardWinner(tempBoard) === 'x') {
-                        boardIndex = b;
-                        cellIndex = c;
-                        foundMove = true;
-                        break;
-                      }
-                      tempBoard[c] = '';
-                    }
-                  }
-                  if (foundMove) break;
-                }
-              }
-
-              // If no immediate win or block, find the best move
-              if (!foundMove) {
-                if (gameSettings.difficulty === 'easy') {
-                  // Choose a random available board and cell
-                  boardIndex =
-                    availableBoards[
-                      Math.floor(Math.random() * availableBoards.length)
-                    ];
-                  const availableCells = [];
-                  for (let i = 0; i < 9; i++) {
-                    if (boards[boardIndex][i] === '') {
-                      availableCells.push(i);
-                    }
-                  }
-                  cellIndex =
-                    availableCells[
-                      Math.floor(Math.random() * availableCells.length)
-                    ];
-                } else {
-                  // Try to find a board where AI can win
-                  if (gameSettings.difficulty === 'hard') {
-                    for (const b of availableBoards) {
-                      const tempBoard = [...boards[b]];
-                      for (let c = 0; c < 9; c++) {
-                        if (tempBoard[c] === '') {
-                          tempBoard[c] = 'o';
-                          if (checkTempBoardWinner(tempBoard) === 'o') {
-                            boardIndex = b;
-                            cellIndex = c;
-                            foundMove = true;
-                            break;
-                          }
-                          tempBoard[c] = '';
-                        }
-                      }
-                      if (foundMove) break;
-                    }
-                  }
-
-                  // If no winning move, find the best available move
-                  if (!foundMove) {
-                    // Choose a random available board
-                    boardIndex =
-                      availableBoards[
-                        Math.floor(Math.random() * availableBoards.length)
-                      ];
-                    cellIndex = findBestMove(boardIndex);
-                  }
-                }
-              }
-            }
-
-            // Make the move
-            makeMove(boardIndex, cellIndex, 'o');
-
-            // Save game state
-            saveGameState();
-
-            // Hide thinking indicator
-            aiThinking.classList.remove('show');
-          },
-          gameSettings.difficulty === 'easy' ? 300 : 800,
-        ); // AI thinking delay
-      }
-
-      // Add aiMakeMoveAsX function for X player in AI vs AI mode
-      function aiMakeMoveAsX() {
-        // Show thinking indicator
-        aiThinking.classList.add('show');
-
-        // Clear any pending AI moves first
-        if (pendingAIMove !== null) {
-          clearTimeout(pendingAIMove);
-          pendingAIMove = null;
-        }
-
-        // Simulate thinking delay
-        pendingAIMove = setTimeout(
-          () => {
-            pendingAIMove = null;
-            let boardIndex, cellIndex;
-
-            // If a specific board is active, play there
-            if (activeBoard !== null && boardWinners[activeBoard] === '') {
-              boardIndex = activeBoard;
-              cellIndex = findBestMoveForX(boardIndex);
-            } else {
-              // Find the best move across all available boards
-              const availableBoards = [];
-              for (let i = 0; i < 9; i++) {
-                if (boardWinners[i] === '') {
-                  availableBoards.push(i);
-                }
-              }
-
-              // If no boards available (shouldn't happen as game would be over)
-              if (availableBoards.length === 0) return;
-
-              // Try to find a winning move or block opponent's winning move
-              let foundMove = false;
-
-              // First, check if X can win the game by winning a board
-              if (gameSettings.difficulty !== 'easy') {
-                for (const b of availableBoards) {
-                  const tempBoard = [...boards[b]];
-                  for (let c = 0; c < 9; c++) {
-                    if (tempBoard[c] === '') {
-                      tempBoard[c] = 'x';
-                      if (checkTempBoardWinner(tempBoard) === 'x') {
-                        boardIndex = b;
-                        cellIndex = c;
-                        foundMove = true;
-                        break;
-                      }
-                      tempBoard[c] = '';
-                    }
-                  }
-                  if (foundMove) break;
-                }
-              }
-
-              // If not, check if opponent can win a board and block them
-              if (!foundMove && gameSettings.difficulty !== 'easy') {
-                for (const b of availableBoards) {
-                  const tempBoard = [...boards[b]];
-                  for (let c = 0; c < 9; c++) {
-                    if (tempBoard[c] === '') {
-                      tempBoard[c] = 'o';
-                      if (checkTempBoardWinner(tempBoard) === 'o') {
-                        boardIndex = b;
-                        cellIndex = c;
-                        foundMove = true;
-                        break;
-                      }
-                      tempBoard[c] = '';
-                    }
-                  }
-                  if (foundMove) break;
-                }
-              }
-
-              // If no immediate win or block, find the best move
-              if (!foundMove) {
-                if (gameSettings.difficulty === 'easy') {
-                  // Choose a random available board and cell
-                  boardIndex =
-                    availableBoards[
-                      Math.floor(Math.random() * availableBoards.length)
-                    ];
-                  const availableCells = [];
-                  for (let i = 0; i < 9; i++) {
-                    if (boards[boardIndex][i] === '') {
-                      availableCells.push(i);
-                    }
-                  }
-                  cellIndex =
-                    availableCells[
-                      Math.floor(Math.random() * availableCells.length)
-                    ];
-                } else {
-                  // Try to find a board where AI can win
-                  if (gameSettings.difficulty === 'hard') {
-                    for (const b of availableBoards) {
-                      const tempBoard = [...boards[b]];
-                      for (let c = 0; c < 9; c++) {
-                        if (tempBoard[c] === '') {
-                          tempBoard[c] = 'x';
-                          if (checkTempBoardWinner(tempBoard) === 'x') {
-                            boardIndex = b;
-                            cellIndex = c;
-                            foundMove = true;
-                            break;
-                          }
-                          tempBoard[c] = '';
-                        }
-                      }
-                      if (foundMove) break;
-                    }
-                  }
-
-                  // If no winning move, find the best available move
-                  if (!foundMove) {
-                    // Choose a random available board
-                    boardIndex =
-                      availableBoards[
-                        Math.floor(Math.random() * availableBoards.length)
-                      ];
-                    cellIndex = findBestMoveForX(boardIndex);
-                  }
-                }
-              }
-            }
-
-            // Make the move
-            makeMove(boardIndex, cellIndex, 'x');
-
-            // Save game state
-            saveGameState();
-
-            // Hide thinking indicator
-            aiThinking.classList.remove('show');
-          },
-          gameSettings.difficulty === 'easy' ? 300 : 800,
-        );
-      }
-
-      // Find the best move for X in a specific board
-      function findBestMoveForX(boardIndex) {
-        const board = boards[boardIndex];
-        const availableCells = [];
-
-        // Get all available cells
-        for (let i = 0; i < 9; i++) {
-          if (board[i] === '') {
-            availableCells.push(i);
+        activeBoardIndexes.forEach(index => {
+          const boardElement = document.querySelector(
+            `.board[data-index="${index}"]`,
+          );
+          if (boardElement) {
+            boardElement.classList.add('active');
+            boardElement
+              .querySelectorAll('.cell:not(.occupied)')
+              .forEach(cell => {
+                cell.style.cursor = 'pointer';
+              });
           }
-        }
-
-        // If center is available, take it
-        if (board[4] === '') return 4;
-
-        // If opponent has two in a row, block them
-        const winningCombos = [
-          [0, 1, 2],
-          [3, 4, 5],
-          [6, 7, 8], // rows
-          [0, 3, 6],
-          [1, 4, 7],
-          [2, 5, 8], // columns
-          [0, 4, 8],
-          [2, 4, 6], // diagonals
-        ];
-
-        for (const combo of winningCombos) {
-          const [a, b, c] = combo;
-          // Check if player has two in a row and one empty
-          if (
-            (board[a] === 'o' && board[b] === 'o' && board[c] === '') ||
-            (board[a] === 'o' && board[c] === 'o' && board[b] === '') ||
-            (board[b] === 'o' && board[c] === 'o' && board[a] === '')
-          ) {
-            // Return the empty spot
-            if (board[a] === '') return a;
-            if (board[b] === '') return b;
-            if (board[c] === '') return c;
-          }
-        }
-
-        // Take a corner if available
-        const corners = [0, 2, 6, 8];
-        const availableCorners = corners.filter(corner => board[corner] === '');
-        if (availableCorners.length > 0) {
-          return availableCorners[
-            Math.floor(Math.random() * availableCorners.length)
-          ];
-        }
-
-        // Take any available edge
-        const edges = [1, 3, 5, 7];
-        const availableEdges = edges.filter(edge => board[edge] === '');
-        if (availableEdges.length > 0) {
-          return availableEdges[
-            Math.floor(Math.random() * availableEdges.length)
-          ];
-        }
-
-        // Fallback - should never happen as we check for tie before
-        return availableCells[0];
+        });
       }
 
-      // Find the best move in a specific board - ADDING THIS FUNCTION
+      // --- AI Logic ---
+
+      // Find the best cell index within a specific board for 'O'
       function findBestMove(boardIndex) {
         const board = boards[boardIndex];
         const availableCells = [];
-
-        // Get all available cells
         for (let i = 0; i < 9; i++) {
-          if (board[i] === '') {
-            availableCells.push(i);
+          if (board[i] === '') availableCells.push(i);
+        }
+        if (availableCells.length === 0) return -1;
+        for (const cellIndex of availableCells) {
+          // Check AI win
+          const tempBoard = [...board];
+          tempBoard[cellIndex] = 'o';
+          if (checkTempBoardWinner(tempBoard) === 'o') return cellIndex;
+        }
+        if (gameSettings.difficulty !== 'easy') {
+          // Check block human win
+          for (const cellIndex of availableCells) {
+            const tempBoard = [...board];
+            tempBoard[cellIndex] = 'x';
+            if (checkTempBoardWinner(tempBoard) === 'x') return cellIndex;
+          }
+        }
+        if (gameSettings.difficulty !== 'easy') {
+          // Prioritize center/corners/sides
+          const center = 4;
+          if (availableCells.includes(center)) return center;
+          const corners = [0, 2, 6, 8];
+          const availableCorners = corners.filter(c =>
+            availableCells.includes(c),
+          );
+          if (availableCorners.length > 0)
+            return availableCorners[
+              Math.floor(Math.random() * availableCorners.length)
+            ];
+          const sides = [1, 3, 5, 7];
+          const availableSides = sides.filter(s => availableCells.includes(s));
+          if (availableSides.length > 0)
+            return availableSides[
+              Math.floor(Math.random() * availableSides.length)
+            ];
+        }
+        return availableCells[
+          Math.floor(Math.random() * availableCells.length)
+        ]; // Random fallback
+      }
+
+      // AI 'O' makes a move
+      function aiMakeMove() {
+        if (!gameActive || gameWinner || currentPlayer !== 'o') return;
+        let boardIndex, cellIndex;
+        const isHard = gameSettings.difficulty === 'hard';
+        const canPlayAnywhere =
+          activeBoard === null || boardWinners[activeBoard] !== '';
+
+        if (isHard) {
+          const bestOverallMove = findBestOverallMove('o');
+          if (canPlayAnywhere) {
+            boardIndex = bestOverallMove.board;
+            cellIndex = bestOverallMove.cell;
+          } else {
+            boardIndex = activeBoard;
+            cellIndex = findBestMoveWithScoring(boardIndex, 'o');
+          }
+        } else {
+          if (canPlayAnywhere) {
+            const availableBoards = [];
+            for (let i = 0; i < 9; i++) {
+              if (boardWinners[i] === '') availableBoards.push(i);
+            }
+            if (availableBoards.length === 0) return;
+            let moveFound = false;
+            for (const b of availableBoards) {
+              // Check O win
+              const bestCell = findBestMove(b);
+              const tempBoard = [...boards[b]];
+              tempBoard[bestCell] = 'o';
+              if (checkTempBoardWinner(tempBoard) === 'o') {
+                boardIndex = b;
+                cellIndex = bestCell;
+                moveFound = true;
+                break;
+              }
+            }
+            if (!moveFound && gameSettings.difficulty !== 'easy') {
+              // Check X block
+              for (const b of availableBoards) {
+                const tempBoard = [...boards[b]]; // Need to check all cells for potential block
+                for (let c = 0; c < 9; c++) {
+                  if (tempBoard[c] === '') {
+                    const blockTestBoard = [...tempBoard];
+                    blockTestBoard[c] = 'x';
+                    if (checkTempBoardWinner(blockTestBoard) === 'x') {
+                      boardIndex = b;
+                      cellIndex = c; // Found the cell to block
+                      moveFound = true;
+                      break;
+                    }
+                  }
+                }
+                if (moveFound) break;
+              }
+            }
+            if (!moveFound) {
+              // Random/Medium fallback
+              boardIndex =
+                availableBoards[
+                  Math.floor(Math.random() * availableBoards.length)
+                ];
+              cellIndex = findBestMove(boardIndex);
+            }
+          } else {
+            boardIndex = activeBoard;
+            cellIndex = findBestMove(boardIndex);
           }
         }
 
-        // If center is available, take it
-        if (board[4] === '') return 4;
+        if (
+          typeof boardIndex !== 'undefined' &&
+          typeof cellIndex !== 'undefined' &&
+          cellIndex !== -1 &&
+          boards[boardIndex][cellIndex] === ''
+        ) {
+          makeMove(boardIndex, cellIndex, 'o');
+        } else {
+          console.error("AI 'O' failed to find a valid move.", {
+            boardIndex,
+            cellIndex,
+            activeBoard,
+            canPlayAnywhere,
+          });
+          const allAvailable = [];
+          for (let b = 0; b < 9; b++) {
+            if (boardWinners[b] === '') {
+              for (let c = 0; c < 9; c++) {
+                if (boards[b][c] === '') allAvailable.push({ b, c });
+              }
+            }
+          }
+          if (allAvailable.length > 0) {
+            const randomFallback =
+              allAvailable[Math.floor(Math.random() * allAvailable.length)];
+            makeMove(randomFallback.b, randomFallback.c, 'o');
+            console.log("AI 'O' made a random fallback move.");
+          } else {
+            console.error("AI 'O' fallback failed: No available cells found.");
+          }
+        }
+        aiThinking.classList.remove('show');
+      }
 
-        // If opponent has two in a row, block them
+      // --- Hard AI Helper Functions ---
+
+      // Evaluate if placing 'player' in board 'b', cell 'c' would win the super board
+      function doesMoveWinSuperBoard(b, c, player) {
+        const tempBoardWinners = [...boardWinners];
+        tempBoardWinners[b] = player;
+        return checkSuperBoardWin(tempBoardWinners) !== null;
+      }
+
+      // Check if a potential super board state wins
+      function checkSuperBoardWin(boardState) {
         const winningCombos = [
           [0, 1, 2],
           [3, 4, 5],
-          [6, 7, 8], // rows
+          [6, 7, 8],
           [0, 3, 6],
           [1, 4, 7],
-          [2, 5, 8], // columns
+          [2, 5, 8],
           [0, 4, 8],
-          [2, 4, 6], // diagonals
+          [2, 4, 6],
         ];
-
         for (const combo of winningCombos) {
           const [a, b, c] = combo;
-          // Check if player has two in a row and one empty
           if (
-            (board[a] === 'x' && board[b] === 'x' && board[c] === '') ||
-            (board[a] === 'x' && board[c] === 'x' && board[b] === '') ||
-            (board[b] === 'x' && board[c] === 'x' && board[a] === '')
+            boardState[a] &&
+            boardState[a] !== 'tie' &&
+            boardState[a] === boardState[b] &&
+            boardState[a] === boardState[c]
           ) {
-            // Return the empty spot
-            if (board[a] === '') return a;
-            if (board[b] === '') return b;
-            if (board[c] === '') return c;
+            return combo; // Return the winning combo
+          }
+        }
+        return null; // No winner
+      }
+
+      // Score a potential move (boardIndex, cellIndex) for 'player'
+      function scoreMove(boardIndex, cellIndex, player) {
+        const opponent = player === 'x' ? 'o' : 'x';
+        let score = 0;
+        const tempBoard = [...boards[boardIndex]];
+        tempBoard[cellIndex] = player;
+        const boardResult = checkTempBoardWinner(tempBoard);
+
+        if (boardResult === player) {
+          // 1. Check board win
+          score += 1000;
+          if (doesMoveWinSuperBoard(boardIndex, cellIndex, player)) {
+            score += 10000;
+          } // Check game win
+        }
+        const tempOpponentBoard = [...boards[boardIndex]];
+        tempOpponentBoard[cellIndex] = opponent;
+        if (checkTempBoardWinner(tempOpponentBoard) === opponent) {
+          // 2. Check block opponent board win
+          score += 800;
+          const tempOpponentWinsBoard = [...boardWinners];
+          tempOpponentWinsBoard[boardIndex] = opponent;
+          if (checkSuperBoardWin(tempOpponentWinsBoard)) {
+            score += 5000;
+          } // Check block opponent game win
+        }
+
+        const targetBoardIndex = cellIndex; // 3. Impact on next board
+        if (boardWinners[targetBoardIndex] === '') {
+          let opponentCanWinTarget = false;
+          let weCanWinTarget = false;
+          for (let i = 0; i < 9; i++) {
+            if (boards[targetBoardIndex][i] === '') {
+              const targetTestOpponent = [...boards[targetBoardIndex]];
+              targetTestOpponent[i] = opponent;
+              if (checkTempBoardWinner(targetTestOpponent) === opponent) {
+                opponentCanWinTarget = true;
+              }
+              const targetTestPlayer = [...boards[targetBoardIndex]];
+              targetTestPlayer[i] = player;
+              if (checkTempBoardWinner(targetTestPlayer) === player) {
+                weCanWinTarget = true;
+              }
+            }
+          }
+          if (opponentCanWinTarget) score -= 900;
+          if (weCanWinTarget) score += 700;
+          let playerPieces = 0;
+          let opponentPieces = 0;
+          boards[targetBoardIndex].forEach(cell => {
+            if (cell === player) playerPieces++;
+            else if (cell === opponent) opponentPieces++;
+          });
+          if (opponentPieces > playerPieces) score -= 50;
+          else if (playerPieces > opponentPieces) score += 50;
+        } else {
+          // Sending to completed board
+          if (
+            !(
+              boardResult === player &&
+              doesMoveWinSuperBoard(boardIndex, cellIndex, player)
+            ) &&
+            !(
+              checkTempBoardWinner(tempOpponentBoard) === opponent &&
+              checkSuperBoardWin([...boardWinners, { [boardIndex]: opponent }])
+            )
+          ) {
+            score -= 200;
           }
         }
 
-        // Take a corner if available
-        const corners = [0, 2, 6, 8];
-        const availableCorners = corners.filter(corner => board[corner] === '');
-        if (availableCorners.length > 0) {
-          return availableCorners[
-            Math.floor(Math.random() * availableCorners.length)
-          ];
-        }
-
-        // Take any available edge
-        const edges = [1, 3, 5, 7];
-        const availableEdges = edges.filter(edge => board[edge] === '');
-        if (availableEdges.length > 0) {
-          return availableEdges[
-            Math.floor(Math.random() * availableEdges.length)
-          ];
-        }
-
-        // Fallback - should never happen as we check for tie before
-        return availableCells[0];
+        if (cellIndex === 4) score += 20;
+        else if ([0, 2, 6, 8].includes(cellIndex)) score += 10; // 4. Cell value
+        score += Math.random() * 5; // 5. Randomness
+        return score;
       }
 
-      // Check if a temporary board has a winner
-      function checkTempBoardWinner(board) {
-        const winningCombos = [
-          [0, 1, 2],
-          [3, 4, 5],
-          [6, 7, 8], // rows
-          [0, 3, 6],
-          [1, 4, 7],
-          [2, 5, 8], // columns
-          [0, 4, 8],
-          [2, 4, 6], // diagonals
-        ];
-
-        for (const combo of winningCombos) {
-          const [a, b, c] = combo;
-          if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-            return board[a];
+      // Find the best move (board, cell) across *all* available boards using scoring
+      function findBestOverallMove(player) {
+        let bestScore = -Infinity;
+        let bestMoves = [];
+        const availableBoards = [];
+        boardWinners.forEach((w, i) => {
+          if (w === '') availableBoards.push(i);
+        });
+        if (availableBoards.length === 0) {
+          console.error(
+            `findBestOverallMove called for ${player} but no available boards!`,
+          );
+          return { board: -1, cell: -1 };
+        }
+        for (const b of availableBoards) {
+          for (let c = 0; c < 9; c++) {
+            if (boards[b][c] === '') {
+              const currentScore = scoreMove(b, c, player);
+              if (currentScore > bestScore) {
+                bestScore = currentScore;
+                bestMoves = [{ board: b, cell: c }];
+              } else if (currentScore === bestScore) {
+                bestMoves.push({ board: b, cell: c });
+              }
+            }
           }
         }
-
-        return '';
+        if (bestMoves.length === 0) {
+          console.error(
+            `findBestOverallMove for ${player} failed to find any scored move.`,
+          );
+          for (const b of availableBoards) {
+            for (let c = 0; c < 9; c++) {
+              if (boards[b][c] === '') return { board: b, cell: c };
+            }
+          }
+          return { board: -1, cell: -1 };
+        }
+        return bestMoves[Math.floor(Math.random() * bestMoves.length)];
       }
 
-      // Show settings modal
+      // Find the best move within a *specific* forced board using scoring
+      function findBestMoveWithScoring(boardIndex, player) {
+        let bestScore = -Infinity;
+        let bestMoves = [];
+        const availableCells = [];
+        for (let c = 0; c < 9; c++) {
+          if (boards[boardIndex][c] === '') {
+            availableCells.push(c);
+            const currentScore = scoreMove(boardIndex, c, player);
+            if (currentScore > bestScore) {
+              bestScore = currentScore;
+              bestMoves = [c];
+            } else if (currentScore === bestScore) {
+              bestMoves.push(c);
+            }
+          }
+        }
+        if (bestMoves.length === 0) {
+          console.error(
+            `findBestMoveWithScoring for board ${boardIndex}, player ${player} found no moves.`,
+          );
+          if (availableCells.length > 0) {
+            return availableCells[
+              Math.floor(Math.random() * availableCells.length)
+            ];
+          }
+          return -1;
+        }
+        return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+      }
+
+      // --- Settings Modal Logic ---
       function showSettings() {
-        // Set current settings in the form
+        // Remove 'aivsai' option if it exists dynamically (or ensure it's hidden by default CSS/HTML)
+        const aiVsAiOption = document
+          .getElementById('aiVsAi')
+          ?.closest('.setting-option');
+        if (aiVsAiOption) aiVsAiOption.style.display = 'none';
+
+        // Populate the modal with current settings (ensure gameMode defaults if loaded pref was invalid)
+        if (!['human', 'ai'].includes(gameSettings.gameMode))
+          gameSettings.gameMode = 'ai';
         document.querySelector(
           `input[name="gameMode"][value="${gameSettings.gameMode}"]`,
         ).checked = true;
@@ -2325,337 +2175,179 @@
         document.querySelector(
           `input[name="difficulty"][value="${gameSettings.difficulty}"]`,
         ).checked = true;
-
-        // Show/hide AI difficulty based on game mode
+        xColorPicker.value = gameSettings.xColor;
+        oColorPicker.value = gameSettings.oColor;
+        xColorPicker.style.backgroundColor = gameSettings.xColor;
+        oColorPicker.style.backgroundColor = gameSettings.oColor;
         aiDifficultyGroup.style.display =
-          gameSettings.gameMode === 'ai' || gameSettings.gameMode === 'aivsai'
-            ? 'block'
-            : 'none';
-
+          gameSettings.gameMode === 'human' ? 'none' : 'block';
         settingsModal.classList.add('show');
       }
 
-      // Hide settings modal
       function hideSettings() {
         settingsModal.classList.remove('show');
       }
 
-      // Show How to Play modal
-      function showHowToPlay() {
-        document.getElementById('howToPlayModal').classList.add('show');
-      }
-
-      // Hide How to Play modal
-      function hideHowToPlay() {
-        document.getElementById('howToPlayModal').classList.remove('show');
-      }
-
-      // Update the saveGameSettings function
       function saveGameSettings() {
-        // Clear any pending AI moves first
-        if (pendingAIMove !== null) {
-          clearTimeout(pendingAIMove);
-          pendingAIMove = null;
-        }
-
-        // Store the previous game mode
-        const previousGameMode = gameSettings.gameMode;
-
-        // Get selected game mode
-        gameSettings.gameMode = document.querySelector(
+        // Read settings from the modal form
+        let selectedGameMode = document.querySelector(
           'input[name="gameMode"]:checked',
-        ).value;
+        )?.value;
+        // Fallback if somehow the removed AIvAI option is still checked
+        if (!['human', 'ai'].includes(selectedGameMode))
+          selectedGameMode = 'ai';
 
-        // Get selected rules
-        gameSettings.rules = document.querySelector(
+        const selectedRules = document.querySelector(
           'input[name="rules"]:checked',
         ).value;
+        const selectedDifficulty = document.querySelector(
+          'input[name="difficulty"]:checked',
+        ).value;
+        const selectedXColor = xColorPicker.value;
+        const selectedOColor = oColorPicker.value;
 
-        // Get selected difficulty (only if in AI mode)
-        if (
-          gameSettings.gameMode === 'ai' ||
-          gameSettings.gameMode === 'aivsai'
-        ) {
-          gameSettings.difficulty = document.querySelector(
-            'input[name="difficulty"]:checked',
-          ).value;
-        }
+        const prevGameMode = gameSettings.gameMode;
+        const prevRules = gameSettings.rules;
+        const prevDifficulty = gameSettings.difficulty;
 
-        // Update game settings
-        gameSettings.xColor = document.getElementById('xColorPicker').value;
-        gameSettings.oColor = document.getElementById('oColorPicker').value;
-        updateColors();
+        // Check if critical settings changed
+        const restartNeeded =
+          prevGameMode !== selectedGameMode ||
+          prevRules !== selectedRules ||
+          (prevGameMode !== 'human' &&
+            prevDifficulty !== selectedDifficulty &&
+            selectedGameMode !== 'human');
 
-        // Update player display icons based on game mode
-        if (gameSettings.gameMode === 'aivsai') {
-          playerODisplay.innerHTML =
-            '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
-          playerXDisplay.innerHTML =
-            '<i class="fas fa-robot"></i> <i class="fas fa-times fa-lg"></i>';
-        } else if (gameSettings.gameMode === 'ai') {
-          playerODisplay.innerHTML =
-            '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
-          playerXDisplay.innerHTML =
-            '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
-        } else {
-          playerODisplay.innerHTML =
-            '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
-          playerXDisplay.innerHTML =
-            '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
-        }
+        // Update the gameSettings object
+        gameSettings.gameMode = selectedGameMode;
+        gameSettings.rules = selectedRules;
+        gameSettings.difficulty = selectedDifficulty;
+        gameSettings.xColor = selectedXColor;
+        gameSettings.oColor = selectedOColor;
 
-        // Save the updated game state
-        saveGameState();
-
-        // Check if we need to trigger an AI move after settings change
-        if (gameActive) {
-          if (gameSettings.gameMode === 'aivsai') {
-            // If changing to AI vs AI, trigger move for current player
-            pendingAIMove = setTimeout(() => {
-              pendingAIMove = null;
-              if (currentPlayer === 'x') {
-                aiMakeMoveAsX();
-              } else {
-                aiMakeMove();
-              }
-            }, 500);
-          } else if (
-            previousGameMode === 'human' &&
-            gameSettings.gameMode === 'ai' &&
-            currentPlayer === 'o'
-          ) {
-            // If switching from human to AI mode and it's O's turn
-            pendingAIMove = setTimeout(() => {
-              pendingAIMove = null;
-              aiMakeMove();
-            }, 500);
-          }
-        }
-
+        updateColors(); // Apply color/icon changes immediately
         hideSettings();
-      }
+        localStorage.setItem(
+          'ticTacSquaredPreferences',
+          JSON.stringify(gameSettings),
+        );
 
-      // Flip a coin to determine who goes first
-      function flipCoin() {
-        const coin = document.getElementById('coin');
-        coin.classList.add('flipping');
-        coinResult.textContent = 'Flipping...';
-
-        setTimeout(() => {
-          coin.classList.remove('flipping');
-          const result = Math.random() < 0.5 ? 'x' : 'o';
-          currentPlayer = result;
-
-          // Add a final flip position based on result
-          coin.style.transform =
-            result === 'x' ? 'rotateY(0deg)' : 'rotateY(180deg)';
-
-          // Update result text with proper icon
-          if (result === 'x') {
-            coinResult.innerHTML =
-              'Player <span style="color: ' +
-              gameSettings.xColor +
-              '"><i class="fas fa-times fa-lg"></i></span> goes first!';
-          } else {
-            coinResult.innerHTML =
-              'Player <span style="color: ' +
-              gameSettings.oColor +
-              '"><i class="far fa-circle fa-lg"></i></span> goes first!';
-          }
-
-          // Update player display
-          playerXDisplay.classList.toggle('active', result === 'x');
-          playerODisplay.classList.toggle('active', result === 'o');
-
-          // Start the game automatically after 1 second
-          setTimeout(startGame, 1000);
-        }, 1500);
-      }
-
-      // Start the game after coin flip
-      function startGame() {
-        gameActive = true;
-        coinFlipModal.style.display = 'none';
-        updateActiveBoards();
-
-        // Clear any pending AI moves just in case
-        if (pendingAIMove !== null) {
-          clearTimeout(pendingAIMove);
-          pendingAIMove = null;
-        }
-
-        // If it's AI's turn in any AI mode, make AI move
-        if (gameSettings.gameMode === 'aivsai') {
-          if (currentPlayer === 'x') {
-            pendingAIMove = setTimeout(() => {
-              pendingAIMove = null;
-              aiMakeMoveAsX();
-            }, 500);
-          } else {
-            pendingAIMove = setTimeout(() => {
-              pendingAIMove = null;
-              aiMakeMove();
-            }, 500);
-          }
-        } else if (gameSettings.gameMode === 'ai' && currentPlayer === 'o') {
-          pendingAIMove = setTimeout(() => {
-            pendingAIMove = null;
-            aiMakeMove();
-          }, 300);
-        }
-      }
-
-      // Update findAndHighlightLastMove to use the stored lastMove information
-      function findAndHighlightLastMove() {
-        // If we have a valid lastMove stored, use it
-        if (
-          lastMove.boardIndex >= 0 &&
-          lastMove.cellIndex >= 0 &&
-          lastMove.player
-        ) {
-          const cell = document.querySelector(
-            `.cell[data-board="${lastMove.boardIndex}"][data-cell="${lastMove.cellIndex}"]`,
-          );
-          if (cell) {
-            cell.classList.add('last-move');
-            return;
-          }
-        }
-
-        // Fallback to the old method if no lastMove is stored
-        // This is less reliable but maintains compatibility
-        const lastPlayer = currentPlayer === 'x' ? 'o' : 'x';
-
-        // Look through all boards and find the most recent move
-        for (let i = 0; i < 9; i++) {
-          for (let j = 0; j < 9; j++) {
-            if (boards[i][j] === lastPlayer) {
-              const cell = document.querySelector(
-                `.cell[data-board="${i}"][data-cell="${j}"]`,
-              );
-              if (cell) {
-                cell.classList.add('last-move');
-                // We only want to highlight one cell as the last move
-                return;
-              }
-            }
+        // Start a new game if critical settings changed during an active game
+        if (restartNeeded && gameActive && !gameWinner) {
+          alert('Settings changed! Starting a new game.');
+          initGame();
+        } else if (gameActive && !gameWinner) {
+          // If only colors changed, or non-critical settings, save current state
+          saveGameState();
+          // If rules changed mid-game, update active boards immediately
+          if (prevRules !== selectedRules) {
+            if (selectedRules === 'free') activeBoard = null;
+            else if (lastMove.cellIndex !== -1)
+              activeBoard =
+                boardWinners[lastMove.cellIndex] === ''
+                  ? lastMove.cellIndex
+                  : null;
+            updateActiveBoards();
           }
         }
       }
 
-      // Add function to handle closing modals when clicking outside
+      // --- How To Play Modal ---
+      function showHowToPlay() {
+        howToPlayModal.classList.add('show');
+      }
+      function hideHowToPlay() {
+        howToPlayModal.classList.remove('show');
+      }
+
+      // --- Modal Outside Click Listener Setup ---
       function setupModalOutsideClickListeners() {
-        // Add click event listeners to each modal
-        document
-          .querySelectorAll(
-            '.settings-modal, .how-to-play-modal, .color-picker-modal',
-          )
-          .forEach(modal => {
-            modal.addEventListener('click', function (event) {
-              // If the click is directly on the modal (background) and not on its children
+        const modals = [settingsModal, howToPlayModal, coinFlipModal];
+        modals.forEach(modal => {
+          if (modal) {
+            modal.addEventListener('click', event => {
               if (event.target === modal) {
-                // Settings modal
-                if (modal.id === 'settingsModal') {
-                  hideSettings();
-                }
-                // How to play modal
-                else if (modal.id === 'howToPlayModal') {
-                  hideHowToPlay();
-                }
-                // Color picker modal
-                else if (modal.id === 'colorPickerModal') {
-                  colorPickerModal.classList.remove('show');
+                const closeButton = modal.querySelector(
+                  '#cancelSettings, #closeHowToPlayBtn',
+                );
+                if (modal === coinFlipModal) {
+                } // Don't close coin flip
+                else if (closeButton) {
+                  closeButton.click();
+                } else {
+                  modal.classList.remove('show');
                 }
               }
             });
-          });
-
-        // Special case for game over modal
-        document
-          .getElementById('gameOver')
-          .addEventListener('click', function (event) {
-            // Only close if clicking directly on the background
-            if (event.target === this) {
-              gameOver.classList.remove('show');
-            }
-          });
+          }
+        });
       }
 
-      // Event listeners for buttons
-      if (howToPlayBtn) howToPlayBtn.addEventListener('click', showHowToPlay);
-      if (closeHowToPlayBtn)
+      // --- Event Listeners ---
+      document.addEventListener('DOMContentLoaded', () => {
+        setupModalOutsideClickListeners();
+        howToPlayBtn.addEventListener('click', showHowToPlay);
         closeHowToPlayBtn.addEventListener('click', hideHowToPlay);
-      newGameBtn.addEventListener('click', () => {
-        clearSavedGameState();
-        initGame();
-      });
-      playAgainBtn.addEventListener('click', () => {
-        clearSavedGameState();
-        initGame();
-      });
-      viewBoardBtn.addEventListener('click', () =>
-        gameOver.classList.remove('show'),
-      );
-      settingsBtn.addEventListener('click', showSettings);
-      cancelSettings.addEventListener('click', hideSettings);
-      saveSettings.addEventListener('click', saveGameSettings);
+        newGameBtn.addEventListener('click', () => {
+          if (
+            confirm(
+              'Are you sure you want to start a new game? Current progress will be lost.',
+            )
+          ) {
+            initGame();
+          }
+        });
+        playAgainBtn.addEventListener('click', initGame);
+        viewBoardBtn.addEventListener('click', () =>
+          gameOver.classList.remove('show'),
+        );
+        settingsBtn.addEventListener('click', showSettings);
+        cancelSettings.addEventListener('click', hideSettings);
+        saveSettings.addEventListener('click', saveGameSettings);
 
-      // Update colors when the user selects a new color
-      document
-        .getElementById('xColorPicker')
-        .addEventListener('input', event => {
+        xColorPicker.addEventListener('input', event => {
           const newColor = event.target.value;
-          gameSettings.xColor = newColor;
-          updateColors();
+          document.documentElement.style.setProperty('--x-color', newColor);
+          playerXDisplay.style.color = newColor;
+          xColorPicker.style.backgroundColor = newColor;
+        });
+        oColorPicker.addEventListener('input', event => {
+          const newColor = event.target.value;
+          document.documentElement.style.setProperty('--o-color', newColor);
+          playerODisplay.style.color = newColor;
+          oColorPicker.style.backgroundColor = newColor;
         });
 
-      document
-        .getElementById('oColorPicker')
-        .addEventListener('input', event => {
-          const newColor = event.target.value;
-          gameSettings.oColor = newColor;
-          updateColors();
+        resetXColorBtn.addEventListener('click', e => {
+          e.preventDefault();
+          xColorPicker.value = DEFAULT_X_COLOR;
+          xColorPicker.dispatchEvent(new Event('input'));
+          xColorPicker.style.backgroundColor = DEFAULT_X_COLOR;
+        });
+        resetOColorBtn.addEventListener('click', e => {
+          e.preventDefault();
+          oColorPicker.value = DEFAULT_O_COLOR;
+          oColorPicker.dispatchEvent(new Event('input'));
+          oColorPicker.style.backgroundColor = DEFAULT_O_COLOR;
         });
 
-      // Reset color button event listeners
-      resetXColorBtn.addEventListener('click', function (e) {
-        e.preventDefault(); // Prevent form submission
-        gameSettings.xColor = DEFAULT_X_COLOR;
-        xColorPicker.value = DEFAULT_X_COLOR;
-        xColorPicker.style.backgroundColor = DEFAULT_X_COLOR;
-        updateColors();
-      });
+        // Settings: Show/hide AI difficulty when game mode changes
+        humanVsHumanRadio.addEventListener('change', () => {
+          if (humanVsHumanRadio.checked)
+            aiDifficultyGroup.style.display = 'none';
+        });
+        humanVsAIRadio.addEventListener('change', () => {
+          if (humanVsAIRadio.checked) aiDifficultyGroup.style.display = 'block';
+        });
+        // Removed listener for aiVsAiRadio
 
-      resetOColorBtn.addEventListener('click', function (e) {
-        e.preventDefault(); // Prevent form submission
-        gameSettings.oColor = DEFAULT_O_COLOR;
-        oColorPicker.value = DEFAULT_O_COLOR;
-        oColorPicker.style.backgroundColor = DEFAULT_O_COLOR;
-        updateColors();
-      });
-
-      // Game mode change listener
-      humanVsHuman.addEventListener('change', function () {
-        if (this.checked) {
-          aiDifficultyGroup.style.display = 'none';
+        // --- Game Initialization ---
+        loadPreferences(); // Load saved settings first
+        if (!loadGameState()) {
+          // Try loading saved game state
+          initGame(); // If no saved game, start a fresh one
         }
       });
-
-      humanVsAI.addEventListener('change', function () {
-        if (this.checked) {
-          aiDifficultyGroup.style.display = 'block';
-        }
-      });
-
-      // Add listener for the new AI vs AI option
-      document.getElementById('aiVsAi').addEventListener('change', function () {
-        if (this.checked) {
-          aiDifficultyGroup.style.display = 'block';
-        }
-      });
-
-      // Initialize the game (load from storage or start new)
-      initializeGame();
     </script>
   </body>
 </html>
