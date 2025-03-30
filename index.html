@@ -958,7 +958,6 @@
       const resetXColorBtn = document.getElementById('resetXColor');
       const resetOColorBtn = document.getElementById('resetOColor');
       const howToPlayModal = document.getElementById('howToPlayModal');
-      const closeHowToPlayBtn = document.getElementById('closeHowToPlayBtn');
 
       // Default color constants
       const DEFAULT_X_COLOR = '#ff4757';
@@ -2206,17 +2205,9 @@
         const selectedXColor = xColorPicker.value;
         const selectedOColor = oColorPicker.value;
 
+        // Save previous settings to detect changes
         const prevGameMode = gameSettings.gameMode;
         const prevRules = gameSettings.rules;
-        const prevDifficulty = gameSettings.difficulty;
-
-        // Check if critical settings changed
-        const restartNeeded =
-          prevGameMode !== selectedGameMode ||
-          prevRules !== selectedRules ||
-          (prevGameMode !== 'human' &&
-            prevDifficulty !== selectedDifficulty &&
-            selectedGameMode !== 'human');
 
         // Update the gameSettings object
         gameSettings.gameMode = selectedGameMode;
@@ -2225,30 +2216,70 @@
         gameSettings.xColor = selectedXColor;
         gameSettings.oColor = selectedOColor;
 
-        updateColors(); // Apply color/icon changes immediately
+        // Apply color/icon changes immediately
+        updateColors();
+
+        // Hide the settings modal
         hideSettings();
+
+        // Save settings to localStorage
         localStorage.setItem(
           'ticTacSquaredPreferences',
           JSON.stringify(gameSettings),
         );
 
-        // Start a new game if critical settings changed during an active game
-        if (restartNeeded && gameActive && !gameWinner) {
-          alert('Settings changed! Starting a new game.');
-          initGame();
-        } else if (gameActive && !gameWinner) {
-          // If only colors changed, or non-critical settings, save current state
-          saveGameState();
-          // If rules changed mid-game, update active boards immediately
+        // If there's an active game, apply changes dynamically
+        if (gameActive && !gameWinner) {
+          // If rules changed, update which boards are active
           if (prevRules !== selectedRules) {
-            if (selectedRules === 'free') activeBoard = null;
-            else if (lastMove.cellIndex !== -1)
+            if (selectedRules === 'free') {
+              // Free play - any non-won board is valid
+              activeBoard = null;
+            } else if (lastMove.cellIndex !== -1) {
+              // Standard - use the cell index from last move to determine next active board
               activeBoard =
                 boardWinners[lastMove.cellIndex] === ''
                   ? lastMove.cellIndex
                   : null;
+            }
             updateActiveBoards();
           }
+
+          // If game mode changed, handle the transition smoothly
+          if (prevGameMode !== selectedGameMode) {
+            // Handle transition from human mode to AI mode
+            if (
+              prevGameMode === 'human' &&
+              selectedGameMode === 'ai' &&
+              currentPlayer === 'o'
+            ) {
+              // If it's O's turn now and we switched to AI mode, trigger AI move
+              aiThinking.classList.add('show');
+              if (pendingAIMove !== null) {
+                clearTimeout(pendingAIMove);
+              }
+              pendingAIMove = setTimeout(() => {
+                pendingAIMove = null;
+                if (!gameActive || gameWinner) {
+                  aiThinking.classList.remove('show');
+                  return;
+                }
+                aiMakeMove();
+              }, 800);
+            }
+            // Handle transition from AI mode to human mode
+            else if (prevGameMode === 'ai' && selectedGameMode === 'human') {
+              // Cancel any pending AI moves
+              if (pendingAIMove !== null) {
+                clearTimeout(pendingAIMove);
+                pendingAIMove = null;
+              }
+              aiThinking.classList.remove('show');
+            }
+          }
+
+          // Save the current game state with updated settings
+          saveGameState();
         }
       }
 
@@ -2289,13 +2320,7 @@
         howToPlayBtn.addEventListener('click', showHowToPlay);
         closeHowToPlayBtn.addEventListener('click', hideHowToPlay);
         newGameBtn.addEventListener('click', () => {
-          if (
-            confirm(
-              'Are you sure you want to start a new game? Current progress will be lost.',
-            )
-          ) {
-            initGame();
-          }
+          initGame();
         });
         playAgainBtn.addEventListener('click', initGame);
         viewBoardBtn.addEventListener('click', () =>
