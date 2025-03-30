@@ -702,6 +702,14 @@
                   checked />
                 <label for="humanVsAI">Human vs AI</label>
               </div>
+              <div class="setting-option">
+                <input
+                  type="radio"
+                  id="aiVsAi"
+                  name="gameMode"
+                  value="aivsai" />
+                <label for="aiVsAi">AI vs AI</label>
+              </div>
             </div>
           </div>
 
@@ -960,6 +968,9 @@
       const DEFAULT_X_COLOR = '#ff4757';
       const DEFAULT_O_COLOR = '#1e90ff';
 
+      // Add a timeout tracker for AI moves
+      let pendingAIMove = null;
+
       // Game state
       let currentPlayer = ''; // x or o (empty before coin flip)
       let activeBoard = null; // which board is active (null means any board)
@@ -975,7 +986,7 @@
 
       // Game settings
       let gameSettings = {
-        gameMode: 'ai', // 'human' or 'ai'
+        gameMode: 'ai', // 'human', 'ai' or 'aivsai'
         rules: 'standard', // 'standard' or 'free'
         xColor: DEFAULT_X_COLOR,
         oColor: DEFAULT_O_COLOR,
@@ -1072,6 +1083,12 @@
 
       // Update the loadGameState function to trigger AI move if needed
       function loadGameState() {
+        // Clear any pending AI moves first
+        if (pendingAIMove !== null) {
+          clearTimeout(pendingAIMove);
+          pendingAIMove = null;
+        }
+
         try {
           const savedState = localStorage.getItem('ticTacSquaredState');
           if (!savedState) return false;
@@ -1085,9 +1102,18 @@
           if (gameSettings.gameMode === 'ai') {
             playerODisplay.innerHTML =
               '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
+            playerXDisplay.innerHTML =
+              '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
+          } else if (gameSettings.gameMode === 'aivsai') {
+            playerODisplay.innerHTML =
+              '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
+            playerXDisplay.innerHTML =
+              '<i class="fas fa-robot"></i> <i class="fas fa-times fa-lg"></i>';
           } else {
             playerODisplay.innerHTML =
               '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
+            playerXDisplay.innerHTML =
+              '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
           }
 
           // Restore game state variables
@@ -1113,15 +1139,25 @@
           // Hide the coin flip modal when loading a saved game
           coinFlipModal.style.display = 'none';
 
-          // If it's AI's turn, trigger an AI move after a short delay
-          if (
+          // If it's AI's turn in AI vs AI mode, trigger a move
+          if (gameActive && gameSettings.gameMode === 'aivsai') {
+            pendingAIMove = setTimeout(() => {
+              pendingAIMove = null;
+              if (currentPlayer === 'x') {
+                aiMakeMoveAsX();
+              } else {
+                aiMakeMove();
+              }
+            }, 1000);
+          } else if (
             gameActive &&
             currentPlayer === 'o' &&
             gameSettings.gameMode === 'ai'
           ) {
-            setTimeout(() => {
+            pendingAIMove = setTimeout(() => {
+              pendingAIMove = null;
               aiMakeMove();
-            }, 1000); // Delay to allow UI to render first
+            }, 1000);
           }
 
           return true;
@@ -1211,12 +1247,22 @@
         // If game is over, show game over screen
         if (gameWinner !== '') {
           if (gameWinner === 'x') {
-            gameOverMessage.textContent =
-              gameSettings.gameMode === 'ai' ? 'You Win!' : 'Player X Wins!';
+            if (gameSettings.gameMode === 'aivsai') {
+              gameOverMessage.textContent = 'AI X Wins!';
+            } else if (gameSettings.gameMode === 'ai') {
+              gameOverMessage.textContent = 'You Win!';
+            } else {
+              gameOverMessage.textContent = 'Player X Wins!';
+            }
             gameOverMessage.className = 'game-over-message x';
           } else if (gameWinner === 'o') {
-            gameOverMessage.textContent =
-              gameSettings.gameMode === 'ai' ? 'AI Wins!' : 'Player O Wins!';
+            if (gameSettings.gameMode === 'aivsai') {
+              gameOverMessage.textContent = 'AI O Wins!';
+            } else if (gameSettings.gameMode === 'ai') {
+              gameOverMessage.textContent = 'AI Wins!';
+            } else {
+              gameOverMessage.textContent = 'Player O Wins!';
+            }
             gameOverMessage.className = 'game-over-message o';
           } else {
             gameOverMessage.textContent = 'Game Tied!';
@@ -1271,6 +1317,12 @@
 
       // Update initGame to clear saved state and start a new game
       function initGame() {
+        // Clear any pending AI moves
+        if (pendingAIMove !== null) {
+          clearTimeout(pendingAIMove);
+          pendingAIMove = null;
+        }
+
         // Clear saved game state
         clearSavedGameState();
 
@@ -1300,9 +1352,18 @@
         if (gameSettings.gameMode === 'ai') {
           playerODisplay.innerHTML =
             '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
+          playerXDisplay.innerHTML =
+            '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
+        } else if (gameSettings.gameMode === 'aivsai') {
+          playerODisplay.innerHTML =
+            '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
+          playerXDisplay.innerHTML =
+            '<i class="fas fa-robot"></i> <i class="fas fa-times fa-lg"></i>';
         } else {
           playerODisplay.innerHTML =
             '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
+          playerXDisplay.innerHTML =
+            '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
         }
 
         // Hide game over screen
@@ -1370,7 +1431,7 @@
         }
       }
 
-      // Update makeMove to track lastMove
+      // Update makeMove to track lastMove and manage AI move timeouts
       function makeMove(boardIndex, cellIndex, player) {
         // Update game state
         boards[boardIndex][cellIndex] = player;
@@ -1419,6 +1480,39 @@
 
         // Save game state
         saveGameState();
+
+        // If game is still active and it's AI's turn in AI vs AI mode, make AI move
+        if (gameActive && gameSettings.gameMode === 'aivsai') {
+          // Clear any existing timeouts first
+          if (pendingAIMove !== null) {
+            clearTimeout(pendingAIMove);
+            pendingAIMove = null;
+          }
+
+          pendingAIMove = setTimeout(function () {
+            pendingAIMove = null;
+            if (currentPlayer === 'x') {
+              aiMakeMoveAsX();
+            } else {
+              aiMakeMove();
+            }
+          }, 1000); // Slightly longer delay for AI vs AI to see moves better
+        } else if (
+          gameActive &&
+          currentPlayer === 'o' &&
+          gameSettings.gameMode === 'ai'
+        ) {
+          // Clear any existing timeouts first
+          if (pendingAIMove !== null) {
+            clearTimeout(pendingAIMove);
+            pendingAIMove = null;
+          }
+
+          pendingAIMove = setTimeout(function () {
+            pendingAIMove = null;
+            aiMakeMove();
+          }, 500);
+        }
       }
 
       // Add a wrapper function to initialize the game
@@ -1442,12 +1536,22 @@
 
         // Show game over message
         if (gameWinner === 'x') {
-          gameOverMessage.textContent =
-            gameSettings.gameMode === 'ai' ? 'You Win!' : 'Player X Wins!';
+          if (gameSettings.gameMode === 'aivsai') {
+            gameOverMessage.textContent = 'AI X Wins!';
+          } else if (gameSettings.gameMode === 'ai') {
+            gameOverMessage.textContent = 'You Win!';
+          } else {
+            gameOverMessage.textContent = 'Player X Wins!';
+          }
           gameOverMessage.className = 'game-over-message x';
         } else if (gameWinner === 'o') {
-          gameOverMessage.textContent =
-            gameSettings.gameMode === 'ai' ? 'AI Wins!' : 'Player O Wins!';
+          if (gameSettings.gameMode === 'aivsai') {
+            gameOverMessage.textContent = 'AI O Wins!';
+          } else if (gameSettings.gameMode === 'ai') {
+            gameOverMessage.textContent = 'AI Wins!';
+          } else {
+            gameOverMessage.textContent = 'Player O Wins!';
+          }
           gameOverMessage.className = 'game-over-message o';
         } else {
           gameOverMessage.textContent = 'Game Tied!';
@@ -1651,12 +1755,22 @@
 
         // Show game over message
         if (gameWinner === 'x') {
-          gameOverMessage.textContent =
-            gameSettings.gameMode === 'ai' ? 'You Win!' : 'Player X Wins!';
+          if (gameSettings.gameMode === 'aivsai') {
+            gameOverMessage.textContent = 'AI X Wins!';
+          } else if (gameSettings.gameMode === 'ai') {
+            gameOverMessage.textContent = 'You Win!';
+          } else {
+            gameOverMessage.textContent = 'Player X Wins!';
+          }
           gameOverMessage.className = 'game-over-message x';
         } else if (gameWinner === 'o') {
-          gameOverMessage.textContent =
-            gameSettings.gameMode === 'ai' ? 'AI Wins!' : 'Player O Wins!';
+          if (gameSettings.gameMode === 'aivsai') {
+            gameOverMessage.textContent = 'AI O Wins!';
+          } else if (gameSettings.gameMode === 'ai') {
+            gameOverMessage.textContent = 'AI Wins!';
+          } else {
+            gameOverMessage.textContent = 'Player O Wins!';
+          }
           gameOverMessage.className = 'game-over-message o';
         } else {
           gameOverMessage.textContent = 'Game Tied!';
@@ -1771,9 +1885,16 @@
         // Show thinking indicator
         aiThinking.classList.add('show');
 
+        // Clear any pending AI moves first
+        if (pendingAIMove !== null) {
+          clearTimeout(pendingAIMove);
+          pendingAIMove = null;
+        }
+
         // Simulate thinking delay
-        setTimeout(
+        pendingAIMove = setTimeout(
           () => {
+            pendingAIMove = null;
             let boardIndex, cellIndex;
 
             // If a specific board is active, play there
@@ -1900,7 +2021,212 @@
         ); // AI thinking delay
       }
 
-      // Find the best move in a specific board
+      // Add aiMakeMoveAsX function for X player in AI vs AI mode
+      function aiMakeMoveAsX() {
+        // Show thinking indicator
+        aiThinking.classList.add('show');
+
+        // Clear any pending AI moves first
+        if (pendingAIMove !== null) {
+          clearTimeout(pendingAIMove);
+          pendingAIMove = null;
+        }
+
+        // Simulate thinking delay
+        pendingAIMove = setTimeout(
+          () => {
+            pendingAIMove = null;
+            let boardIndex, cellIndex;
+
+            // If a specific board is active, play there
+            if (activeBoard !== null && boardWinners[activeBoard] === '') {
+              boardIndex = activeBoard;
+              cellIndex = findBestMoveForX(boardIndex);
+            } else {
+              // Find the best move across all available boards
+              const availableBoards = [];
+              for (let i = 0; i < 9; i++) {
+                if (boardWinners[i] === '') {
+                  availableBoards.push(i);
+                }
+              }
+
+              // If no boards available (shouldn't happen as game would be over)
+              if (availableBoards.length === 0) return;
+
+              // Try to find a winning move or block opponent's winning move
+              let foundMove = false;
+
+              // First, check if X can win the game by winning a board
+              if (gameSettings.difficulty !== 'easy') {
+                for (const b of availableBoards) {
+                  const tempBoard = [...boards[b]];
+                  for (let c = 0; c < 9; c++) {
+                    if (tempBoard[c] === '') {
+                      tempBoard[c] = 'x';
+                      if (checkTempBoardWinner(tempBoard) === 'x') {
+                        boardIndex = b;
+                        cellIndex = c;
+                        foundMove = true;
+                        break;
+                      }
+                      tempBoard[c] = '';
+                    }
+                  }
+                  if (foundMove) break;
+                }
+              }
+
+              // If not, check if opponent can win a board and block them
+              if (!foundMove && gameSettings.difficulty !== 'easy') {
+                for (const b of availableBoards) {
+                  const tempBoard = [...boards[b]];
+                  for (let c = 0; c < 9; c++) {
+                    if (tempBoard[c] === '') {
+                      tempBoard[c] = 'o';
+                      if (checkTempBoardWinner(tempBoard) === 'o') {
+                        boardIndex = b;
+                        cellIndex = c;
+                        foundMove = true;
+                        break;
+                      }
+                      tempBoard[c] = '';
+                    }
+                  }
+                  if (foundMove) break;
+                }
+              }
+
+              // If no immediate win or block, find the best move
+              if (!foundMove) {
+                if (gameSettings.difficulty === 'easy') {
+                  // Choose a random available board and cell
+                  boardIndex =
+                    availableBoards[
+                      Math.floor(Math.random() * availableBoards.length)
+                    ];
+                  const availableCells = [];
+                  for (let i = 0; i < 9; i++) {
+                    if (boards[boardIndex][i] === '') {
+                      availableCells.push(i);
+                    }
+                  }
+                  cellIndex =
+                    availableCells[
+                      Math.floor(Math.random() * availableCells.length)
+                    ];
+                } else {
+                  // Try to find a board where AI can win
+                  if (gameSettings.difficulty === 'hard') {
+                    for (const b of availableBoards) {
+                      const tempBoard = [...boards[b]];
+                      for (let c = 0; c < 9; c++) {
+                        if (tempBoard[c] === '') {
+                          tempBoard[c] = 'x';
+                          if (checkTempBoardWinner(tempBoard) === 'x') {
+                            boardIndex = b;
+                            cellIndex = c;
+                            foundMove = true;
+                            break;
+                          }
+                          tempBoard[c] = '';
+                        }
+                      }
+                      if (foundMove) break;
+                    }
+                  }
+
+                  // If no winning move, find the best available move
+                  if (!foundMove) {
+                    // Choose a random available board
+                    boardIndex =
+                      availableBoards[
+                        Math.floor(Math.random() * availableBoards.length)
+                      ];
+                    cellIndex = findBestMoveForX(boardIndex);
+                  }
+                }
+              }
+            }
+
+            // Make the move
+            makeMove(boardIndex, cellIndex, 'x');
+
+            // Save game state
+            saveGameState();
+
+            // Hide thinking indicator
+            aiThinking.classList.remove('show');
+          },
+          gameSettings.difficulty === 'easy' ? 300 : 800,
+        );
+      }
+
+      // Find the best move for X in a specific board
+      function findBestMoveForX(boardIndex) {
+        const board = boards[boardIndex];
+        const availableCells = [];
+
+        // Get all available cells
+        for (let i = 0; i < 9; i++) {
+          if (board[i] === '') {
+            availableCells.push(i);
+          }
+        }
+
+        // If center is available, take it
+        if (board[4] === '') return 4;
+
+        // If opponent has two in a row, block them
+        const winningCombos = [
+          [0, 1, 2],
+          [3, 4, 5],
+          [6, 7, 8], // rows
+          [0, 3, 6],
+          [1, 4, 7],
+          [2, 5, 8], // columns
+          [0, 4, 8],
+          [2, 4, 6], // diagonals
+        ];
+
+        for (const combo of winningCombos) {
+          const [a, b, c] = combo;
+          // Check if player has two in a row and one empty
+          if (
+            (board[a] === 'o' && board[b] === 'o' && board[c] === '') ||
+            (board[a] === 'o' && board[c] === 'o' && board[b] === '') ||
+            (board[b] === 'o' && board[c] === 'o' && board[a] === '')
+          ) {
+            // Return the empty spot
+            if (board[a] === '') return a;
+            if (board[b] === '') return b;
+            if (board[c] === '') return c;
+          }
+        }
+
+        // Take a corner if available
+        const corners = [0, 2, 6, 8];
+        const availableCorners = corners.filter(corner => board[corner] === '');
+        if (availableCorners.length > 0) {
+          return availableCorners[
+            Math.floor(Math.random() * availableCorners.length)
+          ];
+        }
+
+        // Take any available edge
+        const edges = [1, 3, 5, 7];
+        const availableEdges = edges.filter(edge => board[edge] === '');
+        if (availableEdges.length > 0) {
+          return availableEdges[
+            Math.floor(Math.random() * availableEdges.length)
+          ];
+        }
+
+        // Fallback - should never happen as we check for tie before
+        return availableCells[0];
+      }
+
+      // Find the best move in a specific board - ADDING THIS FUNCTION
       function findBestMove(boardIndex) {
         const board = boards[boardIndex];
         const availableCells = [];
@@ -2002,7 +2328,9 @@
 
         // Show/hide AI difficulty based on game mode
         aiDifficultyGroup.style.display =
-          gameSettings.gameMode === 'ai' ? 'block' : 'none';
+          gameSettings.gameMode === 'ai' || gameSettings.gameMode === 'aivsai'
+            ? 'block'
+            : 'none';
 
         settingsModal.classList.add('show');
       }
@@ -2024,6 +2352,12 @@
 
       // Update the saveGameSettings function
       function saveGameSettings() {
+        // Clear any pending AI moves first
+        if (pendingAIMove !== null) {
+          clearTimeout(pendingAIMove);
+          pendingAIMove = null;
+        }
+
         // Store the previous game mode
         const previousGameMode = gameSettings.gameMode;
 
@@ -2038,7 +2372,10 @@
         ).value;
 
         // Get selected difficulty (only if in AI mode)
-        if (gameSettings.gameMode === 'ai') {
+        if (
+          gameSettings.gameMode === 'ai' ||
+          gameSettings.gameMode === 'aivsai'
+        ) {
           gameSettings.difficulty = document.querySelector(
             'input[name="difficulty"]:checked',
           ).value;
@@ -2049,27 +2386,50 @@
         gameSettings.oColor = document.getElementById('oColorPicker').value;
         updateColors();
 
-        // Update player O display based on the game mode
-        if (gameSettings.gameMode === 'ai') {
+        // Update player display icons based on game mode
+        if (gameSettings.gameMode === 'aivsai') {
           playerODisplay.innerHTML =
             '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
+          playerXDisplay.innerHTML =
+            '<i class="fas fa-robot"></i> <i class="fas fa-times fa-lg"></i>';
+        } else if (gameSettings.gameMode === 'ai') {
+          playerODisplay.innerHTML =
+            '<i class="fas fa-robot"></i> <i class="far fa-circle"></i>';
+          playerXDisplay.innerHTML =
+            '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
         } else {
           playerODisplay.innerHTML =
             '<i class="fas fa-user"></i> <i class="far fa-circle"></i>';
+          playerXDisplay.innerHTML =
+            '<i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>';
         }
 
         // Save the updated game state
         saveGameState();
 
-        // Check if we switched from human to AI mode and it's AI's turn
-        if (
-          previousGameMode === 'human' &&
-          gameSettings.gameMode === 'ai' &&
-          currentPlayer === 'o' &&
-          gameActive
-        ) {
-          // Trigger AI move after a short delay
-          setTimeout(() => aiMakeMove(), 500);
+        // Check if we need to trigger an AI move after settings change
+        if (gameActive) {
+          if (gameSettings.gameMode === 'aivsai') {
+            // If changing to AI vs AI, trigger move for current player
+            pendingAIMove = setTimeout(() => {
+              pendingAIMove = null;
+              if (currentPlayer === 'x') {
+                aiMakeMoveAsX();
+              } else {
+                aiMakeMove();
+              }
+            }, 500);
+          } else if (
+            previousGameMode === 'human' &&
+            gameSettings.gameMode === 'ai' &&
+            currentPlayer === 'o'
+          ) {
+            // If switching from human to AI mode and it's O's turn
+            pendingAIMove = setTimeout(() => {
+              pendingAIMove = null;
+              aiMakeMove();
+            }, 500);
+          }
         }
 
         hideSettings();
@@ -2118,9 +2478,30 @@
         coinFlipModal.style.display = 'none';
         updateActiveBoards();
 
-        // If it's AI's turn and we're in AI mode, make AI move
-        if (gameSettings.gameMode === 'ai' && currentPlayer === 'o') {
-          setTimeout(() => aiMakeMove(), 300);
+        // Clear any pending AI moves just in case
+        if (pendingAIMove !== null) {
+          clearTimeout(pendingAIMove);
+          pendingAIMove = null;
+        }
+
+        // If it's AI's turn in any AI mode, make AI move
+        if (gameSettings.gameMode === 'aivsai') {
+          if (currentPlayer === 'x') {
+            pendingAIMove = setTimeout(() => {
+              pendingAIMove = null;
+              aiMakeMoveAsX();
+            }, 500);
+          } else {
+            pendingAIMove = setTimeout(() => {
+              pendingAIMove = null;
+              aiMakeMove();
+            }, 500);
+          }
+        } else if (gameSettings.gameMode === 'ai' && currentPlayer === 'o') {
+          pendingAIMove = setTimeout(() => {
+            pendingAIMove = null;
+            aiMakeMove();
+          }, 300);
         }
       }
 
@@ -2261,6 +2642,13 @@
       });
 
       humanVsAI.addEventListener('change', function () {
+        if (this.checked) {
+          aiDifficultyGroup.style.display = 'block';
+        }
+      });
+
+      // Add listener for the new AI vs AI option
+      document.getElementById('aiVsAi').addEventListener('change', function () {
         if (this.checked) {
           aiDifficultyGroup.style.display = 'block';
         }
