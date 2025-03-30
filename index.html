@@ -1752,44 +1752,86 @@
         }
       }
 
-      // Draw winning line on the super board
-      function drawSuperWinningLine(combo) {
-        if (!superBoard || !combo) return;
-        superBoard
-          .querySelectorAll(':scope > .winning-line')
-          .forEach(line => line.remove());
-        const boardWidth = superBoard.offsetWidth / 3;
-        const boardHeight = superBoard.offsetHeight / 3;
-        const lineThickness = 6;
-        const [a, c] = [combo[0], combo[2]];
+      // Draw winning line on a board - fixed positioning for better centering
+      function drawWinningLine(boardIndex, combo) {
+        const board = document.querySelector(
+          `.board[data-index="${boardIndex}"]`,
+        );
+        const boardRect = board.getBoundingClientRect();
+        const cellSize = boardRect.width / 3;
+
+        // Get positions of the winning cells
+        const [a, b, c] = combo;
         const aCol = a % 3;
         const aRow = Math.floor(a / 3);
         const cCol = c % 3;
         const cRow = Math.floor(c / 3);
-        const startXCenter = aCol * boardWidth + boardWidth / 2;
-        const startYCenter = aRow * boardHeight + boardHeight / 2;
-        const endXCenter = cCol * boardWidth + boardWidth / 2;
-        const endYCenter = cRow * boardHeight + boardHeight / 2;
-        const deltaX = endXCenter - startXCenter;
-        const deltaY = endYCenter - startYCenter;
-        const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY) * 0.95;
-        const angleRad = Math.atan2(deltaY, deltaX);
-        const offset = Math.sqrt(deltaX * deltaX + deltaY * deltaY) * 0.025;
-        const adjustedStartX = startXCenter + offset * Math.cos(angleRad);
-        const adjustedStartY = startYCenter + offset * Math.sin(angleRad);
+
+        // Calculate start and end points
+        let startX, startY, endX, endY;
+
+        // For rows - ensure horizontal lines are centered vertically in each row
+        if (aRow === cRow) {
+          // offset
+          let rowOffset = -5;
+          if (cRow == 0) rowOffset = -1.5;
+          else if (cRow == 2) rowOffset = -9;
+
+          startX = cellSize * 0.1; // Small offset from left edge
+
+          // Calculate the exact center of the row
+          startY = aRow * cellSize + cellSize / 2 + rowOffset;
+
+          endX = boardRect.width - cellSize * 0.1 - 6; // Small offset from right edge
+          endY = startY;
+        }
+        // For columns - ensure vertical lines are centered horizontally in each column
+        else if (aCol === cCol) {
+          // offset
+          let colOffset = -3;
+          if (cCol == 0) colOffset = 1;
+          else if (cCol == 2) colOffset = -6;
+          // Calculate the exact center of the column
+          startX = aCol * cellSize + cellSize / 2 + colOffset;
+
+          startY = cellSize * 0.1 - 1; // Small offset from top edge
+          endX = startX;
+          endY = boardRect.height - cellSize * 0.1 - 8.5; // Small offset from bottom edge
+        }
+        // For diagonals - keep the current implementation as requested
+        else {
+          if (a === 0 || c === 0) {
+            // Top-left to bottom-right diagonal
+            startX = cellSize * 0.1 + 2;
+            startY = cellSize * 0.1 - 0; // Shifted up at start
+            endX = boardRect.width - cellSize + 395 * 0.1 + 1;
+            endY = boardRect.height - cellSize + 395 * 0.1 - 1; // Shifted up more at end
+          } else {
+            // Top-right to bottom-left diagonal
+            startX = boardRect.width - cellSize * 0.1 - 8;
+            startY = cellSize * 0.1 + 0; // Shifted up at start
+            endX = cellSize * 0.1 + 2;
+            endY = boardRect.height - cellSize * 0.1 - 10; // Shifted up more at end
+          }
+        }
+
+        // Create the line element
         const line = document.createElement('div');
         line.className = 'winning-line';
-        line.style.position = 'absolute';
-        line.style.width = `${length}px`;
-        line.style.height = `${lineThickness}px`;
-        line.style.left = `${adjustedStartX}px`;
-        line.style.top = `${adjustedStartY - lineThickness / 2}px`;
-        line.style.transform = `rotate(${angleRad}rad)`;
-        line.style.transformOrigin = `0 ${lineThickness / 2}px`;
+        line.style.width = `${Math.sqrt(
+          Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2),
+        )}px`;
+        line.style.height = '4px'; // line thickness
+        line.style.left = `${startX}px`;
+        line.style.top = `${startY}px`;
+        line.style.transform = `rotate(${Math.atan2(endY - startY, endX - startX)}rad)`;
+        line.style.transformOrigin = '0 50%'; // Center the line vertically
         line.style.backgroundColor =
-          gameWinner === 'x' ? gameSettings.xColor : gameSettings.oColor;
-        line.style.zIndex = '10';
-        superBoard.appendChild(line);
+          boardWinners[boardIndex] === 'x'
+            ? gameSettings.xColor
+            : gameSettings.oColor;
+
+        board.appendChild(line);
       }
 
       // Update which boards are active and highlight them
