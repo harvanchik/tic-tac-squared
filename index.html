@@ -142,6 +142,23 @@
         color: var(--o-color);
       }
 
+      .cell.last-move {
+        position: relative;
+      }
+
+      .cell.last-move::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: currentColor;
+        opacity: 0.15;
+        pointer-events: none;
+        border-radius: 4px;
+      }
+
       .winning-line {
         position: absolute;
         background-color: rgba(255, 255, 255, 0.8);
@@ -328,8 +345,9 @@
 
       .color-option {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
+        gap: 10px;
       }
 
       .color-box {
@@ -572,14 +590,6 @@
         margin: 0;
       }
 
-      .close-how-to-play {
-        background: none;
-        border: none;
-        color: var(--text-light);
-        font-size: 1.5rem;
-        cursor: pointer;
-      }
-
       .how-to-play-body {
         margin-bottom: 20px;
       }
@@ -599,6 +609,22 @@
       .how-to-play-footer {
         display: flex;
         justify-content: center;
+      }
+
+      /* Add transparent border to modal buttons */
+      .settings-modal button,
+      .how-to-play-modal button,
+      .color-picker-modal button,
+      .game-over button {
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.3s;
+      }
+
+      .settings-modal button:hover,
+      .how-to-play-modal button:hover,
+      .color-picker-modal button:hover,
+      .game-over button:hover {
+        border-color: rgba(255, 255, 255, 0.8);
       }
     </style>
   </head>
@@ -741,12 +767,8 @@
         </div>
 
         <div class="settings-footer">
-          <button id="saveSettings">
-            <i class="fas fa-save"></i> Save Settings
-          </button>
-          <button id="cancelSettings">
-            <i class="fas fa-times"></i> Cancel
-          </button>
+          <button id="saveSettings"><i class="fas fa-save"></i> Save</button>
+          <button id="cancelSettings"><i class="fas fa-times"></i> Exit</button>
         </div>
       </div>
     </div>
@@ -771,9 +793,6 @@
       <div class="how-to-play-content">
         <div class="how-to-play-header">
           <h3 class="how-to-play-title">How to Play</h3>
-          <button class="close-how-to-play" id="closeHowToPlay">
-            <i class="fas fa-times"></i>
-          </button>
         </div>
 
         <div class="how-to-play-body">
@@ -888,7 +907,6 @@
       const xColorPicker = document.getElementById('xColorPicker');
       const oColorPicker = document.getElementById('oColorPicker');
       const howToPlayModal = document.getElementById('howToPlayModal');
-      const closeHowToPlay = document.getElementById('closeHowToPlay');
       const closeHowToPlayBtn = document.getElementById('closeHowToPlayBtn');
 
       // Game state
@@ -1147,6 +1165,11 @@
             if (winningCombo) drawWinningLine(i, winningCombo);
           }
         }
+
+        // Find and highlight the last move if the game is in progress
+        if (gameActive) {
+          findAndHighlightLastMove();
+        }
       }
 
       // Find winning combo for a board (for UI recreation)
@@ -1278,11 +1301,16 @@
         // Update game state
         boards[boardIndex][cellIndex] = player;
 
+        // Remove last-move class from any previous cells
+        document.querySelectorAll('.cell.last-move').forEach(cell => {
+          cell.classList.remove('last-move');
+        });
+
         // Update UI
         const cell = document.querySelector(
           `.cell[data-board="${boardIndex}"][data-cell="${cellIndex}"]`,
         );
-        cell.classList.add(player, 'occupied');
+        cell.classList.add(player, 'occupied', 'last-move');
         cell.innerHTML =
           player === 'x'
             ? '<i class="fas fa-times fa-lg"></i>'
@@ -1992,7 +2020,7 @@
             coinResult.innerHTML =
               'Player <span style="color: ' +
               gameSettings.oColor +
-              '"><i class="far fa-circle"></i></span> goes first!';
+              '"><i class="far fa-circle fa-lg"></i></span> goes first!';
           }
 
           // Update player display
@@ -2016,10 +2044,31 @@
         }
       }
 
+      // Add helper function to find and highlight the last move
+      function findAndHighlightLastMove() {
+        // The last move would belong to the opposite of the current player
+        const lastPlayer = currentPlayer === 'x' ? 'o' : 'x';
+
+        // Look through all boards and find the most recent move
+        for (let i = 0; i < 9; i++) {
+          for (let j = 0; j < 9; j++) {
+            if (boards[i][j] === lastPlayer) {
+              // This could be the last move - check the cell
+              const cell = document.querySelector(
+                `.cell[data-board="${i}"][data-cell="${j}"]`,
+              );
+              if (cell) {
+                cell.classList.add('last-move');
+                // We only want to highlight one cell as the last move
+                return;
+              }
+            }
+          }
+        }
+      }
+
       // Event listeners for buttons
       if (howToPlayBtn) howToPlayBtn.addEventListener('click', showHowToPlay);
-      if (closeHowToPlay)
-        closeHowToPlay.addEventListener('click', hideHowToPlay);
       if (closeHowToPlayBtn)
         closeHowToPlayBtn.addEventListener('click', hideHowToPlay);
       newGameBtn.addEventListener('click', () => {
