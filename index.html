@@ -7,7 +7,10 @@
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- PeerJS library -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
+      /* --- Base Styles (Mostly Unchanged) --- */
       :root {
         --x-color: #ff4757;
         --o-color: #1e90ff;
@@ -16,6 +19,10 @@
         --highlight: rgba(255, 255, 255, 0.1);
         --text-light: #f1f2f6;
         --modal-bg: rgba(47, 53, 66, 0.95);
+        --disabled-color: #747d8c;
+        --error-color: #ff6b6b;
+        --success-color: #2ecc71;
+        --code-prefix: 'TTSQ-'; /* Internal prefix for PeerJS IDs */
       }
 
       body {
@@ -28,11 +35,12 @@
         flex-direction: column;
         align-items: center;
         min-height: 100vh;
+        position: relative;
       }
 
       header {
         text-align: center;
-        margin-top: 20px;
+        margin-top: 10px;
         margin-bottom: 5px;
         width: 100%;
         position: relative;
@@ -46,24 +54,35 @@
 
       .game-info {
         display: flex;
-        justify-content: space-between;
-        width: 500px;
-        margin: 0 auto 20px;
+        justify-content: space-around;
+        align-items: center;
+        width: 550px;
+        max-width: 95%;
+        margin: 0 auto 15px;
         font-size: 1.2rem;
         font-weight: bold;
+        min-height: 50px;
+        flex-wrap: wrap; /* Allow wrapping if needed */
+        gap: 10px; /* Add gap for wrapping */
       }
 
       .player {
-        padding: 10px 20px;
+        padding: 10px 15px;
         border-radius: 5px;
         transition: all 0.3s;
         display: flex;
         align-items: center;
         gap: 8px;
+        flex-shrink: 0;
       }
 
       .player.active {
         background-color: var(--highlight);
+        box-shadow: 0 0 8px currentColor;
+      }
+
+      .player.inactive {
+        opacity: 0.6;
       }
 
       .player-x {
@@ -72,6 +91,49 @@
 
       .player-o {
         color: var(--o-color);
+      }
+
+      #gameCodeDisplay {
+        font-size: 1.2rem; /* Larger code */
+        font-weight: bold;
+        letter-spacing: 2px; /* Space out chars */
+        background-color: var(--board-bg);
+        padding: 8px 16px; /* More padding */
+        border-radius: 5px;
+        cursor: pointer;
+        border: 1px solid var(--text-light);
+        transition: all 0.2s ease;
+        text-align: center;
+        display: none; /* Hidden by default */
+        white-space: nowrap;
+        order: 0; /* Keep code between players if space allows */
+        flex-basis: 150px; /* Give it some base width */
+        flex-grow: 0;
+      }
+
+      #gameCodeDisplay:hover {
+        background-color: var(--highlight);
+        border-color: white;
+      }
+
+      #gameCodeDisplay .copy-icon {
+        margin-left: 8px;
+        font-size: 0.9em;
+        opacity: 0.7;
+      }
+
+      #gameCodeDisplay.copied::after {
+        content: ' Copied!';
+        font-size: 0.8em;
+        color: var(--success-color);
+        margin-left: 5px;
+        animation: fadeOut 1.5s forwards;
+      }
+
+      @keyframes fadeOut {
+        to {
+          opacity: 0;
+        }
       }
 
       .super-board {
@@ -95,6 +157,11 @@
         padding: 5px;
         position: relative;
         overflow: hidden;
+        transition:
+          box-shadow 0.3s,
+          background-color 0.3s,
+          border-color 0.3s,
+          opacity 0.3s;
       }
 
       .board.active {
@@ -106,15 +173,17 @@
         background-color: rgba(255, 71, 87, 0.2);
         border: 3px solid var(--x-color);
       }
-
       .board.won-o {
         background-color: rgba(30, 144, 255, 0.2);
         border: 3px solid var(--o-color);
       }
-
       .board.tie {
         background-color: rgba(113, 128, 147, 0.5);
         border: 3px solid var(--text-light);
+      }
+      .board.inactive-board {
+        opacity: 0.5;
+        pointer-events: none;
       }
 
       .cell {
@@ -130,23 +199,19 @@
         position: relative;
         z-index: 2;
       }
-
-      .cell:hover:not(.occupied) {
+      .cell:hover:not(.occupied):not(.disabled-cell) {
         background-color: var(--highlight);
       }
-
+      .cell.occupied,
+      .cell.disabled-cell {
+        cursor: default;
+      }
       .cell.x {
         color: var(--x-color);
       }
-
       .cell.o {
         color: var(--o-color);
       }
-
-      .cell.last-move {
-        position: relative;
-      }
-
       .cell.last-move::after {
         content: '';
         position: absolute;
@@ -168,8 +233,8 @@
       }
 
       .controls {
-        margin-top: 30px;
-        margin-bottom: 30px;
+        margin-top: 20px;
+        margin-bottom: 20px;
         display: flex;
         gap: 15px;
         flex-wrap: wrap;
@@ -188,25 +253,48 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
       }
-
-      button:hover {
+      button:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border-color: rgba(255, 255, 255, 0.8);
+      }
+      button:disabled {
+        background-color: var(--disabled-color);
+        cursor: not-allowed;
+        opacity: 0.7;
+        border-color: rgba(0, 0, 0, 0.2);
+        transform: none;
+        box-shadow: none;
       }
 
-      .ai-thinking {
-        margin-top: 20px;
+      .status-display {
+        /* Shared style for AI Thinking / Connection Status */
         font-style: italic;
-        opacity: 0;
         transition: opacity 0.3s;
         display: flex;
         align-items: center;
+        justify-content: center; /* Center content */
         gap: 8px;
+        font-size: 1rem;
+        color: var(--text-light);
+        min-height: 25px; /* Ensure space */
+        text-align: center;
+        order: 0; /* Keep between players */
+        flex-basis: 200px; /* Allow space */
+        flex-grow: 1; /* Allow to grow */
+        opacity: 0; /* Hidden by default */
+        pointer-events: none; /* Don't capture clicks */
       }
-
-      .ai-thinking.show {
+      .status-display.show {
         opacity: 1;
+      }
+      #aiThinking {
+        /* Inherits from status-display */
+      }
+      #connectionStatus {
+        /* Inherits from status-display */
       }
 
       .game-over {
@@ -215,7 +303,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.8);
+        background-color: rgba(0, 0, 0, 0.85); /* Darker overlay */
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -225,31 +313,25 @@
         pointer-events: none;
         transition: opacity 0.5s;
       }
-
       .game-over.show {
         opacity: 1;
         pointer-events: all;
       }
-
       .game-over-message {
         font-size: 3rem;
         font-weight: bold;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
         text-align: center;
       }
-
       .game-over-message.x {
         color: var(--x-color);
       }
-
       .game-over-message.o {
         color: var(--o-color);
       }
-
       .game-over-message.tie {
         color: var(--text-light);
       }
-
       .game-over-buttons {
         display: flex;
         gap: 15px;
@@ -269,7 +351,8 @@
         }
       }
 
-      .settings-modal {
+      /* --- Modal Styles (Improved) --- */
+      .modal {
         position: fixed;
         top: 0;
         left: 0;
@@ -282,103 +365,247 @@
         z-index: 200;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.3s;
+        transition: opacity 0.3s ease-out;
       }
-
-      .settings-modal.show {
+      .modal.show {
         opacity: 1;
         pointer-events: all;
       }
 
-      .settings-content {
+      .modal-content {
         background-color: var(--board-bg);
-        padding: 30px;
-        border-radius: 10px;
-        width: 400px;
+        padding: 30px 35px; /* More padding */
+        border-radius: 12px; /* Softer radius */
+        width: 450px; /* Default width */
         max-width: 90%;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        position: relative;
+        border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border */
       }
-
-      .settings-header {
+      .modal-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
       }
-
-      .settings-title {
-        font-size: 1.5rem;
+      .modal-title {
+        font-size: 1.7rem;
         margin: 0;
+        font-weight: 600;
+      }
+      .modal-close-btn {
+        background: none;
+        border: none;
+        color: var(--text-light);
+        font-size: 1.8rem;
+        cursor: pointer;
+        padding: 0 5px;
+        line-height: 1;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+      }
+      .modal-close-btn:hover {
+        opacity: 1;
+      }
+      .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 30px;
       }
 
+      /* Start Menu */
+      #startMenuModal .modal-content {
+        text-align: center;
+        width: 400px;
+      }
+      #startMenuModal .modal-footer {
+        justify-content: center;
+        flex-direction: column;
+        gap: 15px;
+      }
+      #startMenuModal button {
+        width: 100%;
+        font-size: 1.1rem;
+        padding: 12px;
+      }
+
+      /* Online Menu */
+      #onlineMenuModal .modal-content {
+        width: 480px;
+      }
+      .online-menu-section {
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--highlight);
+      }
+      .online-menu-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
+      #onlineMenuModal label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+      #onlineMenuModal input[type='text'] {
+        width: 100%;
+        padding: 12px 15px;
+        border-radius: 6px;
+        border: 1px solid var(--highlight);
+        background-color: var(--bg-color);
+        color: var(--text-light);
+        font-size: 1.1rem;
+        box-sizing: border-box;
+        margin-bottom: 12px;
+        text-align: center;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      #onlineMenuModal input[type='text']::placeholder {
+        text-transform: none;
+        letter-spacing: normal;
+      }
+      #onlineMenuModal .modal-footer {
+        justify-content: space-between;
+      }
+      #statusMessage {
+        margin-top: 20px;
+        font-style: normal;
+        min-height: 22px;
+        font-weight: 500;
+        text-align: center;
+        transition: color 0.3s;
+      }
+      #statusMessage.error {
+        color: var(--error-color);
+      }
+      #statusMessage.success {
+        color: var(--success-color);
+      }
+      .loader {
+        border: 4px solid var(--highlight);
+        border-top: 4px solid var(--text-light);
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        margin-left: 10px;
+        vertical-align: middle;
+        display: none; /* Hidden initially */
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      /* Style for Create Game button when creating */
+      #createGameBtn.creating {
+        font-style: italic;
+      }
+
+      /* Settings Modal */
+      #settingsModal .modal-content {
+        width: 550px;
+      }
+      .settings-columns {
+        display: flex;
+        gap: 30px;
+      }
+      .settings-column {
+        flex: 1;
+      }
       .setting-group {
         margin-bottom: 20px;
       }
-
       .setting-label {
         display: block;
         margin-bottom: 8px;
         font-weight: bold;
       }
-
       .setting-option {
         display: flex;
         align-items: center;
         margin-bottom: 10px;
       }
-
       .setting-option input {
         margin-right: 10px;
       }
-
       .color-picker {
         display: flex;
-        gap: 15px;
+        gap: 25px;
         margin-top: 15px;
+        flex-wrap: wrap;
       }
-
       .color-option {
         display: flex;
-        flex-direction: row;
         align-items: center;
         gap: 10px;
       }
-
       .color-box {
-        width: 30px;
-        height: 30px;
+        width: 35px;
+        height: 35px;
         border-radius: 50%;
         cursor: pointer;
         border: 2px solid transparent;
         transition: transform 0.2s;
+        background-color: transparent;
+        -webkit-appearance: none;
+        appearance: none;
+        padding: 0;
+        overflow: hidden;
+        vertical-align: middle;
       }
-
-      .color-box.selected {
-        border-color: var(--text-light);
-        transform: scale(1.1);
+      input[type='color']::-moz-color-swatch {
+        border: none;
+        border-radius: 50%;
       }
-
+      input[type='color']::-webkit-color-swatch-wrapper {
+        padding: 0;
+        border-radius: 50%;
+      }
+      input[type='color']::-webkit-color-swatch {
+        border: none;
+        border-radius: 50%;
+      }
       .settings-footer {
         display: flex;
         justify-content: flex-end;
         gap: 10px;
         margin-top: 30px;
       }
-
-      .coin-flip-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.8);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+      #aiDifficultyGroup {
+        display: none;
+      } /* Hidden by default, shown by JS */
+      .reset-color-btn {
+        background: none;
+        border: none;
+        color: var(--text-light);
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 50%;
+        font-size: 0.9rem;
+        display: inline-flex;
         align-items: center;
-        z-index: 300;
+        justify-content: center;
+        transition: all 0.2s;
+        margin-left: 5px;
+      }
+      .reset-color-btn:hover {
+        background-color: var(--highlight);
+        transform: rotate(-45deg);
       }
 
+      /* Coin Flip Modal */
+      .coin-flip-modal {
+        /* Use .modal base style */
+      }
       .coin-flip-content {
         background-color: var(--board-bg);
         padding: 30px;
@@ -386,7 +613,6 @@
         text-align: center;
         max-width: 90%;
       }
-
       .coin {
         width: 100px;
         height: 100px;
@@ -395,11 +621,9 @@
         transform-style: preserve-3d;
         transition: transform 0.1s;
       }
-
       .coin.flipping {
         animation: flip-coin 1.5s ease-out forwards;
       }
-
       .coin-side {
         position: absolute;
         width: 100%;
@@ -413,34 +637,18 @@
         font-weight: bold;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
       }
-
       .coin-side.heads {
         background: linear-gradient(45deg, #ffd700, #ffcc00);
         border: 4px solid #e6b800;
         color: var(--x-color);
         z-index: 2;
       }
-
       .coin-side.tails {
         background: linear-gradient(45deg, #ffd700, #ffcc00);
         border: 4px solid #e6b800;
         color: var(--o-color);
         transform: rotateY(180deg);
       }
-
-      input[type='color']::-moz-color-swatch {
-        border: none;
-      }
-
-      input[type='color']::-webkit-color-swatch-wrapper {
-        padding: 0;
-        border-radius: 0;
-      }
-
-      input[type='color']::-webkit-color-swatch {
-        border: none;
-      }
-
       @keyframes flip-coin {
         0% {
           transform: rotateY(0) rotateX(0);
@@ -462,105 +670,10 @@
         }
       }
 
-      .color-picker-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.8);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 400;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s;
-      }
-
-      .color-picker-modal.show {
-        opacity: 1;
-        pointer-events: all;
-      }
-
-      .color-picker-content {
-        background-color: var(--board-bg);
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-      }
-
-      .color-picker-input {
-        width: 100%;
-        margin: 15px 0;
-      }
-
-      .color-picker-buttons {
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-        margin-top: 15px;
-      }
-
-      @media (max-width: 600px) {
-        .super-board {
-          width: 90vw;
-          height: 90vw;
-        }
-
-        .game-info {
-          width: 90vw;
-          font-size: 1rem;
-        }
-
-        .controls {
-          width: 90vw;
-        }
-
-        .game-over-message {
-          font-size: 2rem;
-        }
-
-        .game-over-buttons {
-          flex-direction: column;
-          width: 80%;
-        }
-
-        .game-over-buttons button {
-          width: 100%;
-        }
-
-        .player {
-          padding: 8px 12px;
-          font-size: 0.9rem;
-        }
-
-        h1 {
-          font-size: 2rem;
-        }
-      }
-
+      /* How To Play Modal */
       .how-to-play-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: var(--modal-bg);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 200;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s;
+        /* Use .modal base style */
       }
-
-      .how-to-play-modal.show {
-        opacity: 1;
-        pointer-events: all;
-      }
-
       .how-to-play-content {
         background-color: var(--board-bg);
         padding: 30px;
@@ -571,90 +684,112 @@
         overflow-y: auto;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
       }
-
       .how-to-play-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 20px;
       }
-
       .how-to-play-title {
         font-size: 1.5rem;
         margin: 0;
       }
-
       .how-to-play-body {
         margin-bottom: 20px;
       }
-
       .how-to-play-body h3 {
         margin-top: 16px;
         margin-bottom: 8px;
         color: var(--text-light);
       }
-
       .how-to-play-body p,
       .how-to-play-body li {
         margin-bottom: 8px;
         line-height: 1.5;
       }
-
       .how-to-play-footer {
         display: flex;
         justify-content: center;
       }
 
-      /* Add transparent border to modal buttons */
-      .settings-modal button,
-      .how-to-play-modal button,
-      .color-picker-modal button,
-      .game-over button {
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        transition: all 0.3s;
-      }
-
-      .settings-modal button:hover,
-      .how-to-play-modal button:hover,
-      .color-picker-modal button:hover,
-      .game-over button:hover {
-        border-color: rgba(255, 255, 255, 0.8);
-      }
-
-      /* Add two-column layout for settings */
-      .settings-columns {
-        display: flex;
-        gap: 20px;
-      }
-
-      .settings-column {
-        flex: 1;
-      }
-
-      /* Make sure AI difficulty group doesn't increase modal height */
-      #aiDifficultyGroup {
-        display: none;
-      }
-
-      /* Add style for the reset color buttons */
-      .reset-color-btn {
-        background: none;
-        border: none;
-        color: var(--text-light);
-        cursor: pointer;
-        padding: 5px;
-        border-radius: 50%;
-        font-size: 0.9rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-        margin-left: 5px;
-      }
-
-      .reset-color-btn:hover {
-        background-color: var(--highlight);
-        transform: rotate(-45deg);
+      /* Media Queries */
+      @media (max-width: 600px) {
+        .super-board {
+          width: 95vw;
+          height: 95vw;
+          gap: 5px;
+        }
+        h1 {
+          font-size: 2rem;
+          margin-bottom: 5px;
+        }
+        .game-info {
+          width: 95vw;
+          font-size: 1rem;
+          flex-direction: row;
+          justify-content: space-between;
+          gap: 5px;
+          min-height: 0;
+        }
+        .player {
+          padding: 6px 10px;
+          font-size: 0.9rem;
+          gap: 5px;
+        }
+        #gameCodeDisplay {
+          font-size: 1rem;
+          padding: 6px 10px;
+          letter-spacing: 1px;
+          order: 1;
+          flex-basis: auto;
+          margin-top: 5px;
+        } /* Center code below players on small screens */
+        .status-display {
+          order: 1;
+          flex-basis: 100%;
+          font-size: 0.9rem;
+          margin-top: 5px;
+        }
+        .controls {
+          width: 95vw;
+          gap: 10px;
+          margin-top: 15px;
+          margin-bottom: 15px;
+        }
+        .controls button {
+          font-size: 0.9rem;
+          padding: 8px 15px;
+        }
+        .game-over-message {
+          font-size: 2rem;
+          margin-bottom: 20px;
+        }
+        .game-over-buttons {
+          flex-direction: column;
+          width: 80%;
+          gap: 10px;
+        }
+        .game-over-buttons button {
+          width: 100%;
+        }
+        .modal-content {
+          padding: 20px;
+        }
+        .modal-title {
+          font-size: 1.4rem;
+        }
+        .settings-columns {
+          flex-direction: column;
+          gap: 0;
+        }
+        .color-picker {
+          justify-content: center;
+          gap: 15px;
+        }
+        #onlineMenuModal input[type='text'] {
+          font-size: 1rem;
+          padding: 10px;
+        }
       }
     </style>
   </head>
@@ -663,25 +798,96 @@
       <h1>Tic Tac Squared</h1>
       <div class="game-info">
         <div class="player player-x active">
-          <i class="fas fa-user"></i> <i class="fas fa-times fa-lg"></i>
+          <span class="player-role">You</span>
+          <i class="fas fa-times fa-lg"></i>
         </div>
-        <div id="aiThinking" class="ai-thinking">
+        <!-- Status/Code Display Area -->
+        <div id="gameCodeDisplay">
+          <span id="codeValue"></span> <i class="far fa-copy copy-icon"></i>
+        </div>
+        <div id="aiThinking" class="status-display">
           AI thinking... <i class="fas fa-cog fa-spin"></i>
         </div>
+        <div id="connectionStatus" class="status-display">
+          Connecting... <i class="fas fa-spinner fa-spin"></i>
+        </div>
         <div class="player player-o">
-          <i class="fas fa-robot"></i> <i class="far fa-circle"></i>
+          <span class="player-role">AI</span>
+          <i class="far fa-circle"></i>
         </div>
       </div>
     </header>
 
     <div id="superBoard" class="super-board"></div>
 
-    <div class="settings-modal" id="settingsModal">
-      <div class="settings-content">
-        <div class="settings-header">
-          <h3 class="settings-title">Game Settings</h3>
+    <!-- Start Menu Modal -->
+    <div class="modal" id="startMenuModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">Choose Game Mode</h3>
+          <!-- No close button needed here -->
         </div>
+        <div class="modal-footer">
+          <button id="playLocallyBtn">
+            <i class="fas fa-users"></i> Play Locally
+          </button>
+          <button id="playOnlineBtn">
+            <i class="fas fa-globe"></i> Play Online
+          </button>
+        </div>
+      </div>
+    </div>
 
+    <!-- Online Menu Modal -->
+    <div class="modal" id="onlineMenuModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">Play Online</h3>
+          <button
+            class="modal-close-btn"
+            id="closeOnlineMenuBtn"
+            aria-label="Close">
+            &times;
+          </button>
+        </div>
+        <div class="online-menu-section">
+          <button
+            id="createGameBtn"
+            style="width: 100%; padding: 12px; font-size: 1.1rem">
+            <i class="fas fa-plus-circle"></i> Create New Game
+          </button>
+        </div>
+        <div class="online-menu-section">
+          <label for="gameCodeInput">Enter 5-Character Game Code:</label>
+          <input
+            type="text"
+            id="gameCodeInput"
+            placeholder="ABCDE"
+            maxlength="5" />
+          <button
+            id="joinGameBtn"
+            style="width: 100%; padding: 12px; font-size: 1.1rem">
+            <i class="fas fa-sign-in-alt"></i> Join Game
+          </button>
+        </div>
+        <div id="statusMessage">
+          Initializing... <span class="loader"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal (Structure remains the same) -->
+    <div class="modal" id="settingsModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">Local Game Settings</h3>
+          <button
+            class="modal-close-btn"
+            id="cancelSettings"
+            aria-label="Close">
+            &times;
+          </button>
+        </div>
         <div class="settings-columns">
           <div class="settings-column">
             <div class="setting-group">
@@ -691,8 +897,9 @@
                   type="radio"
                   id="humanVsHuman"
                   name="gameMode"
-                  value="human" />
-                <label for="humanVsHuman">Human vs Human</label>
+                  value="human" /><label for="humanVsHuman"
+                  >Human vs Human</label
+                >
               </div>
               <div class="setting-option">
                 <input
@@ -700,20 +907,10 @@
                   id="humanVsAI"
                   name="gameMode"
                   value="ai"
-                  checked />
-                <label for="humanVsAI">Human vs AI</label>
-              </div>
-              <div class="setting-option">
-                <input
-                  type="radio"
-                  id="aiVsAi"
-                  name="gameMode"
-                  value="aivsai" />
-                <label for="aiVsAi">AI vs AI</label>
+                  checked /><label for="humanVsAI">Human vs AI</label>
               </div>
             </div>
           </div>
-
           <div class="settings-column">
             <div class="setting-group" id="aiDifficultyGroup">
               <label class="setting-label">AI Difficulty:</label>
@@ -722,8 +919,7 @@
                   type="radio"
                   id="easyAI"
                   name="difficulty"
-                  value="easy" />
-                <label for="easyAI">Easy</label>
+                  value="easy" /><label for="easyAI">Easy</label>
               </div>
               <div class="setting-option">
                 <input
@@ -731,21 +927,18 @@
                   id="mediumAI"
                   name="difficulty"
                   value="medium"
-                  checked />
-                <label for="mediumAI">Medium</label>
+                  checked /><label for="mediumAI">Medium</label>
               </div>
               <div class="setting-option">
                 <input
                   type="radio"
                   id="hardAI"
                   name="difficulty"
-                  value="hard" />
-                <label for="hardAI">Hard</label>
+                  value="hard" /><label for="hardAI">Hard</label>
               </div>
             </div>
           </div>
         </div>
-
         <div class="setting-group">
           <label class="setting-label">Rules:</label>
           <div class="setting-option">
@@ -754,159 +947,114 @@
               id="standardRules"
               name="rules"
               value="standard"
-              checked />
-            <label for="standardRules"
+              checked /><label for="standardRules"
               >Standard (next board determined by last move)</label
             >
           </div>
           <div class="setting-option">
-            <input type="radio" id="freeRules" name="rules" value="free" />
-            <label for="freeRules"
+            <input
+              type="radio"
+              id="freeRules"
+              name="rules"
+              value="free" /><label for="freeRules"
               >Free Play (move in any board at any time)</label
             >
           </div>
         </div>
-
         <div class="setting-group">
           <label class="setting-label">Player Colors:</label>
           <div class="color-picker">
             <div class="color-option">
-              <label>X Color</label>
-              <input
+              <label>X Color</label
+              ><input
                 type="color"
                 id="xColorPicker"
                 class="color-box"
-                data-player="x"
-                value="#ff4757"
-                style="
-                  background-color: transparent;
-                  border: 0;
-                  width: 30px;
-                  height: 30px;
-                  border-radius: 50%;
-                  cursor: pointer;
-                  appearance: none;
-                  -webkit-appearance: none;
-                  padding: 0;
-                  overflow: hidden;
-                " />
-              <button class="reset-color-btn" id="resetXColor">
+                value="#ff4757" /><button
+                class="reset-color-btn"
+                id="resetXColor">
                 <i class="fas fa-undo-alt"></i>
               </button>
             </div>
             <div class="color-option">
-              <label>O Color</label>
-              <input
+              <label>O Color</label
+              ><input
                 type="color"
                 id="oColorPicker"
                 class="color-box"
-                data-player="o"
-                value="#1e90ff"
-                style="
-                  background-color: transparent;
-                  border: 0;
-                  width: 30px;
-                  height: 30px;
-                  border-radius: 50%;
-                  cursor: pointer;
-                  appearance: none;
-                  -webkit-appearance: none;
-                  padding: 0;
-                  overflow: hidden;
-                " />
-              <button class="reset-color-btn" id="resetOColor">
+                value="#1e90ff" /><button
+                class="reset-color-btn"
+                id="resetOColor">
                 <i class="fas fa-undo-alt"></i>
               </button>
             </div>
           </div>
         </div>
-
         <div class="settings-footer">
-          <button id="saveSettings"><i class="fas fa-save"></i> Save</button>
-          <button id="cancelSettings"><i class="fas fa-times"></i> Exit</button>
+          <button id="saveSettings">
+            <i class="fas fa-save"></i> Save & Close
+          </button>
+          <!-- Cancel button moved to header -->
         </div>
       </div>
     </div>
 
-    <div class="coin-flip-modal" id="coinFlipModal">
+    <!-- Coin Flip Modal (Structure remains the same) -->
+    <div class="modal coin-flip-modal" id="coinFlipModal">
       <div class="coin-flip-content">
         <h2>Flip a Coin</h2>
         <p>Determining who goes first...</p>
         <div class="coin" id="coin">
-          <div class="coin-side heads">
-            <i class="fas fa-times fa-2x"></i>
-          </div>
-          <div class="coin-side tails">
-            <i class="far fa-circle fa-2x"></i>
-          </div>
+          <div class="coin-side heads"><i class="fas fa-times fa-2x"></i></div>
+          <div class="coin-side tails"><i class="far fa-circle fa-2x"></i></div>
         </div>
         <div id="coinResult"></div>
       </div>
     </div>
 
-    <div class="how-to-play-modal" id="howToPlayModal">
+    <!-- How To Play Modal (Structure remains the same) -->
+    <div class="modal how-to-play-modal" id="howToPlayModal">
       <div class="how-to-play-content">
         <div class="how-to-play-header">
           <h3 class="how-to-play-title">How to Play</h3>
+          <button
+            class="modal-close-btn"
+            id="closeHowToPlayBtn"
+            aria-label="Close">
+            &times;
+          </button>
         </div>
-
         <div class="how-to-play-body">
+          <!-- Content -->
           <h3>Basic Rules</h3>
           <ul>
             <li>Players take turns marking spaces with X or O.</li>
-            <li>
-              Win a small board by getting three of your marks in a row
-              (horizontally, vertically, or diagonally).
-            </li>
+            <li>Win a small board by getting three of your marks in a row.</li>
             <li>
               Win the game by winning three small boards in a row on the super
               board.
             </li>
           </ul>
-
           <h3>Board Selection Rules</h3>
           <p>
             <strong>Standard Rules:</strong> Your move sends your opponent to
-            the corresponding board. For example, if you play in the top-right
-            cell of any board, your opponent must play in the top-right board.
+            the corresponding board.
           </p>
           <p>
             <strong>Free Play:</strong> Players can play in any non-completed
             board on their turn.
           </p>
-
           <h3>Special Situations</h3>
           <ul>
             <li>
               If you're sent to a board that's already won or tied, you can play
               in any available board.
             </li>
-            <li>
-              A tied board (filled with no winner) doesn't count for either
-              player.
-            </li>
+            <li>A tied board doesn't count for either player.</li>
           </ul>
         </div>
-
         <div class="how-to-play-footer">
-          <button id="closeHowToPlayBtn">
-            <i class="fas fa-check"></i> Got It
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="color-picker-modal" id="colorPickerModal">
-      <div class="color-picker-content">
-        <h3 id="colorPickerTitle">Select Color</h3>
-        <input type="color" id="colorPickerInput" class="color-picker-input" />
-        <div class="color-picker-buttons">
-          <button id="confirmColorBtn">
-            <i class="fas fa-check"></i> Confirm
-          </button>
-          <button id="cancelColorBtn">
-            <i class="fas fa-times"></i> Cancel
-          </button>
+          <!-- Close button moved to header -->
         </div>
       </div>
     </div>
@@ -919,6 +1067,9 @@
       <button id="newGameBtn">
         <i class="fas fa-plus-circle"></i> New Game
       </button>
+      <button id="quitOnlineBtn" style="display: none">
+        <i class="fas fa-sign-out-alt"></i> Quit Game
+      </button>
     </div>
 
     <div class="game-over" id="gameOver">
@@ -928,28 +1079,35 @@
           <i class="fas fa-sync-alt"></i> Play Again
         </button>
         <button id="viewBoardBtn"><i class="fas fa-eye"></i> View Board</button>
+        <button id="goToMenuBtn"><i class="fas fa-bars"></i> Main Menu</button>
       </div>
     </div>
 
     <script>
-      // Game elements
+      // --- DOM Elements ---
       const superBoard = document.getElementById('superBoard');
       const playerXDisplay = document.querySelector('.player-x');
       const playerODisplay = document.querySelector('.player-o');
+      const playerXRole = playerXDisplay.querySelector('.player-role');
+      const playerORole = playerODisplay.querySelector('.player-role');
+      const gameCodeDisplay = document.getElementById('gameCodeDisplay');
+      const codeValueSpan = document.getElementById('codeValue');
       const aiThinking = document.getElementById('aiThinking');
+      const connectionStatus = document.getElementById('connectionStatus');
       const howToPlayBtn = document.getElementById('howToPlayBtn');
       const newGameBtn = document.getElementById('newGameBtn');
+      const quitOnlineBtn = document.getElementById('quitOnlineBtn');
       const gameOver = document.getElementById('gameOver');
       const gameOverMessage = document.getElementById('gameOverMessage');
       const playAgainBtn = document.getElementById('playAgainBtn');
       const viewBoardBtn = document.getElementById('viewBoardBtn');
+      const goToMenuBtn = document.getElementById('goToMenuBtn');
       const settingsBtn = document.getElementById('settingsBtn');
       const settingsModal = document.getElementById('settingsModal');
       const saveSettings = document.getElementById('saveSettings');
-      const cancelSettings = document.getElementById('cancelSettings');
+      const cancelSettings = document.getElementById('cancelSettings'); // Now in modal header
       const humanVsHumanRadio = document.getElementById('humanVsHuman');
       const humanVsAIRadio = document.getElementById('humanVsAI');
-      // const aiVsAiRadio = document.getElementById('aiVsAi'); // Reference removed - AIvAI functionality disabled
       const aiDifficultyGroup = document.getElementById('aiDifficultyGroup');
       const coinFlipModal = document.getElementById('coinFlipModal');
       const coin = document.getElementById('coin');
@@ -959,252 +1117,818 @@
       const resetXColorBtn = document.getElementById('resetXColor');
       const resetOColorBtn = document.getElementById('resetOColor');
       const howToPlayModal = document.getElementById('howToPlayModal');
+      const closeHowToPlayBtn = document.getElementById('closeHowToPlayBtn'); // Now in modal header
 
-      // Default color constants
+      // Menu Modals & Elements
+      const startMenuModal = document.getElementById('startMenuModal');
+      const onlineMenuModal = document.getElementById('onlineMenuModal');
+      const playLocallyBtn = document.getElementById('playLocallyBtn');
+      const playOnlineBtn = document.getElementById('playOnlineBtn');
+      const closeOnlineMenuBtn = document.getElementById('closeOnlineMenuBtn');
+      const createGameBtn = document.getElementById('createGameBtn');
+      const gameCodeInput = document.getElementById('gameCodeInput');
+      const joinGameBtn = document.getElementById('joinGameBtn');
+      const statusMessage = document.getElementById('statusMessage');
+      const statusLoader = statusMessage.querySelector('.loader');
+
+      // --- Constants ---
       const DEFAULT_X_COLOR = '#ff4757';
       const DEFAULT_O_COLOR = '#1e90ff';
+      const PEER_ID_PREFIX = 'TTSQ-'; // Prefix for PeerJS IDs to make them somewhat unique
+      const SHORT_CODE_LENGTH = 5;
+      const SHORT_CODE_CHARS = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789'; // Exclude O, 0
+      const MAX_CREATE_ATTEMPTS = 5; // Max attempts for generating a unique short code
 
-      // Add a timeout tracker for AI moves
-      let pendingAIMove = null;
-
-      // Add temporary variables to store color selections before saving
-      let tempXColor;
-      let tempOColor;
-
-      // Game state
-      let currentPlayer = ''; // x or o (empty before coin flip)
-      let activeBoard = null; // which board is active (null means any board)
-      let boards = Array(9)
-        .fill()
-        .map(() => Array(9).fill(''));
-      let boardWinners = Array(9).fill(''); // 'x', 'o', 'tie', or ''
+      // --- Game State ---
+      let gameModeType = 'menu'; // 'menu', 'local', 'online'
+      let currentPlayer = ''; // 'x' or 'o'
+      let activeBoard = null; // Board index (0-8) or null (any)
+      let boards = [];
+      let boardWinners = [];
       let gameWinner = '';
-      let gameActive = false; // starts false until coin flip
+      let gameActive = false;
       let winningCombination = null;
       let lastMove = { boardIndex: -1, cellIndex: -1, player: '' };
+      let pendingAIMove = null;
 
-      // Game settings (initialized with defaults)
+      // Local Game Settings
       let gameSettings = {
-        gameMode: 'ai', // 'human', 'ai' (aivsai removed)
-        rules: 'standard', // 'standard' or 'free'
+        gameMode: 'ai',
+        rules: 'standard',
         xColor: DEFAULT_X_COLOR,
         oColor: DEFAULT_O_COLOR,
-        difficulty: 'medium', // 'easy', 'medium', 'hard'
+        difficulty: 'medium',
       };
 
-      // Helper function to convert hex to rgba
+      // Online Game State
+      let peer = null;
+      let conn = null;
+      let shortGameCode = null; // The 5-char code visible to users
+      let fullPeerId = null; // The actual ID used by PeerJS (prefix + code)
+      let playerSymbolOnline = null;
+      let isOnlineGame = false;
+      let isConnecting = false; // Flag to prevent multiple connection attempts
+      let createAttemptCount = 0; // Counter for creation attempts
+
+      // --- Helper Functions ---
+
+      function showModal(modalElement) {
+        modalElement.classList.add('show');
+      }
+
+      function hideModal(modalElement) {
+        modalElement.classList.remove('show');
+      }
+
       function hexToRGBA(hex, alpha) {
-        if (!hex || hex.length < 7) {
-          console.warn(`Invalid hex color: ${hex}. Using default.`);
-          hex = '#000000'; // Default to black if invalid
-        }
+        /* ... (same as before) ... */
+        if (!hex || hex.length < 7) hex = '#000000';
         try {
-          let r = parseInt(hex.slice(1, 3), 16);
-          let g = parseInt(hex.slice(3, 5), 16);
-          let b = parseInt(hex.slice(5, 7), 16);
+          let r = parseInt(hex.slice(1, 3), 16),
+            g = parseInt(hex.slice(3, 5), 16),
+            b = parseInt(hex.slice(5, 7), 16);
           return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         } catch (error) {
-          console.error(`Error parsing hex color ${hex}:`, error);
-          return `rgba(0, 0, 0, ${alpha})`; // Default to black RGBA
+          return `rgba(0, 0, 0, ${alpha})`;
         }
       }
 
-      // Update colors based on game settings
-      function updateColors() {
-        // Update CSS variables
-        document.documentElement.style.setProperty(
-          '--x-color',
-          gameSettings.xColor,
-        );
-        document.documentElement.style.setProperty(
-          '--o-color',
-          gameSettings.oColor,
-        );
-
-        // Update player displays
-        // Player X is always user unless gameMode changes (handled in settings save)
-        // Player O is user in human mode, robot in AI mode
-        const playerXIcon = 'fa-user'; // X is always human now
-        const playerOIcon =
-          gameSettings.gameMode === 'human' ? 'fa-user' : 'fa-robot';
-        playerXDisplay.innerHTML = `<i class="fas ${playerXIcon}"></i> <i class="fas fa-times fa-lg"></i>`;
-        playerODisplay.innerHTML = `<i class="fas ${playerOIcon}"></i> <i class="far fa-circle"></i>`;
-
-        playerXDisplay.style.color = gameSettings.xColor;
-        playerODisplay.style.color = gameSettings.oColor;
-
-        // Update color pickers
-        if (xColorPicker) {
-          xColorPicker.value = gameSettings.xColor;
-          xColorPicker.style.backgroundColor = gameSettings.xColor;
+      function generateShortCode() {
+        let result = '';
+        for (let i = 0; i < SHORT_CODE_LENGTH; i++) {
+          result += SHORT_CODE_CHARS.charAt(
+            Math.floor(Math.random() * SHORT_CODE_CHARS.length),
+          );
         }
-        if (oColorPicker) {
-          oColorPicker.value = gameSettings.oColor;
-          oColorPicker.style.backgroundColor = gameSettings.oColor;
-        }
-
-        // Update existing board visuals
-        document.querySelectorAll('.board.won-x').forEach(board => {
-          board.style.borderColor = gameSettings.xColor;
-          board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
-        });
-        document.querySelectorAll('.board.won-o').forEach(board => {
-          board.style.borderColor = gameSettings.oColor;
-          board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
-        });
-
-        // Update existing cell colors
-        document.querySelectorAll('.cell.x').forEach(cell => {
-          cell.style.color = gameSettings.xColor;
-        });
-        document.querySelectorAll('.cell.o').forEach(cell => {
-          cell.style.color = gameSettings.oColor;
-        });
-
-        // Update winning lines colors
-        document.querySelectorAll('.winning-line').forEach(line => {
-          const boardElement = line.closest('.board');
-          if (boardElement) {
-            const boardIndex = parseInt(boardElement.dataset.index);
-            if (boardWinners[boardIndex] === 'x')
-              line.style.backgroundColor = gameSettings.xColor;
-            else if (boardWinners[boardIndex] === 'o')
-              line.style.backgroundColor = gameSettings.oColor;
-            else line.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-          } else if (superBoard.contains(line)) {
-            if (gameWinner === 'x')
-              line.style.backgroundColor = gameSettings.xColor;
-            else if (gameWinner === 'o')
-              line.style.backgroundColor = gameSettings.oColor;
-            else line.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-          }
-        });
-
-        // Update coin colors
-        const coinHeads = document.querySelector('.coin-side.heads');
-        const coinTails = document.querySelector('.coin-side.tails');
-        if (coinHeads) coinHeads.style.color = gameSettings.xColor;
-        if (coinTails) coinTails.style.color = gameSettings.oColor;
+        return result;
       }
 
-      // Save game state to localStorage
-      function saveGameState() {
-        const gameState = {
-          currentPlayer,
-          activeBoard,
-          boards,
-          boardWinners,
-          gameWinner,
-          gameActive,
-          winningCombination,
-          lastMove,
-        };
-        localStorage.setItem('ticTacSquaredState', JSON.stringify(gameState));
-        localStorage.setItem(
-          'ticTacSquaredPreferences',
-          JSON.stringify(gameSettings),
-        );
+      function updateStatusDisplay(
+        element,
+        message,
+        showSpinner = false,
+        isError = false,
+        isSuccess = false,
+      ) {
+        if (!element) return;
+        element.innerHTML = `${message} ${showSpinner ? '<i class="fas fa-spinner fa-spin"></i>' : ''}`;
+        element.classList.toggle('show', !!message);
+        element.classList.toggle('error', isError); // Add error class if needed
+        element.classList.toggle('success', isSuccess); // Add success class if needed
+
+        // Ensure only one status is shown prominently
+        if (element === connectionStatus && message) {
+          aiThinking.classList.remove('show');
+          gameCodeDisplay.style.display = 'none';
+        } else if (element === aiThinking && message) {
+          connectionStatus.classList.remove('show');
+          gameCodeDisplay.style.display = 'none';
+        }
       }
 
-      // Load preferences function
-      function loadPreferences() {
-        const savedPrefs = localStorage.getItem('ticTacSquaredPreferences');
-        if (savedPrefs) {
-          try {
-            const prefs = JSON.parse(savedPrefs);
-            const validPrefs = {};
-            // Only allow 'human' or 'ai' for gameMode now
-            if (['human', 'ai'].includes(prefs.gameMode))
-              validPrefs.gameMode = prefs.gameMode;
-            if (['standard', 'free'].includes(prefs.rules))
-              validPrefs.rules = prefs.rules;
-            if (prefs.xColor) validPrefs.xColor = prefs.xColor;
-            if (prefs.oColor) validPrefs.oColor = prefs.oColor;
-            if (['easy', 'medium', 'hard'].includes(prefs.difficulty))
-              validPrefs.difficulty = prefs.difficulty;
-            gameSettings = { ...gameSettings, ...validPrefs };
-          } catch (e) {
-            console.error('Error loading preferences:', e);
-            localStorage.removeItem('ticTacSquaredPreferences');
-          }
-        }
-        // Ensure gameMode is valid after loading, default to 'ai' if invalid
-        if (!['human', 'ai'].includes(gameSettings.gameMode)) {
-          gameSettings.gameMode = 'ai';
-        }
-        // If no previous state exists, reset to default settings
-        if (!localStorage.getItem('ticTacSquaredState')) {
-          gameSettings.gameMode = 'ai';
-          gameSettings.rules = 'standard';
-          gameSettings.difficulty = 'medium';
-        }
+      function updateOnlineMenuStatus(
+        message,
+        showSpinner = false,
+        isError = false,
+        isSuccess = false,
+      ) {
+        statusMessage.innerHTML = `${message} ${showSpinner ? '<span class="loader" style="display:inline-block"></span>' : ''}`;
+        statusMessage.className =
+          `status-message ${isError ? 'error' : ''} ${isSuccess ? 'success' : ''}`.trim(); // Apply classes
+      }
+
+      function copyToClipboard(text) {
+        /* ... (same as before) ... */
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            gameCodeDisplay.classList.add('copied');
+            setTimeout(() => gameCodeDisplay.classList.remove('copied'), 1500);
+          })
+          .catch(err => {
+            console.error('Failed to copy game code: ', err);
+            alert('Failed to copy code. Please copy it manually.');
+          });
+      }
+
+      // --- Initialization and Menu Logic ---
+
+      function showStartMenu() {
+        gameModeType = 'menu';
+        isOnlineGame = false;
+        gameActive = false;
+        isConnecting = false;
+        cleanupPeer();
+        hideModal(onlineMenuModal);
+        hideModal(settingsModal);
+        hideModal(howToPlayModal);
+        hideModal(coinFlipModal); // Use hideModal for consistency
+        gameOver.classList.remove('show');
+        superBoard.innerHTML = '';
+        playerXDisplay.classList.remove('active', 'inactive');
+        playerODisplay.classList.remove('active', 'inactive');
+        gameCodeDisplay.style.display = 'none';
+        updateStatusDisplay(connectionStatus, ''); // Clear connection status
+        updateStatusDisplay(aiThinking, ''); // Clear AI status
+        settingsBtn.style.display = 'inline-flex';
+        newGameBtn.innerHTML = '<i class="fas fa-plus-circle"></i> New Game'; // Reset button text/icon
+        quitOnlineBtn.style.display = 'none';
+        createGameBtn.disabled = false; // Re-enable buttons
+        joinGameBtn.disabled = false;
+        createGameBtn.classList.remove('creating');
+        loadPreferences();
         updateColors();
+        showModal(startMenuModal);
       }
 
-      // Update the loadGameState function to trigger AI move if needed
-      function loadGameState() {
-        if (pendingAIMove !== null) {
-          clearTimeout(pendingAIMove);
-          pendingAIMove = null;
+      function initLocalGame() {
+        /* ... (same as before, uses coin flip) ... */
+        gameModeType = 'local';
+        isOnlineGame = false;
+        hideModal(startMenuModal);
+        hideModal(settingsModal);
+
+        resetGameState();
+        loadPreferences();
+        updateColors();
+        createBoardUI();
+
+        showModal(coinFlipModal); // Use showModal
+        flipCoin();
+      }
+
+      function initOnlineMode() {
+        gameModeType = 'online'; // Tentative
+        isOnlineGame = true; // Mark as online attempt
+        hideModal(startMenuModal);
+        showModal(onlineMenuModal);
+        updateOnlineMenuStatus('Initializing...', true);
+        createGameBtn.disabled = true;
+        joinGameBtn.disabled = true;
+        initializePeer(); // Initialize PeerJS for online play
+      }
+
+      // --- PeerJS Logic (Revised) ---
+
+      function initializePeer(idToUse = null, isCreating = false) {
+        if (peer && !peer.destroyed && peer.id === idToUse) {
+          console.log('Peer already initialized with this ID:', idToUse);
+          if (isCreating) {
+            // If trying to create with existing peer
+            updateOnlineMenuStatus(
+              `Ready. Waiting for opponent... Code: ${shortGameCode}`,
+              false,
+              false,
+              true,
+            );
+            createGameBtn.disabled = true; // Stay disabled
+            joinGameBtn.disabled = true;
+            hideModal(onlineMenuModal);
+            displayShortCode(); // Show code in header
+          } else {
+            // If trying to join with existing peer (less likely scenario)
+            updateOnlineMenuStatus('Ready. Enter code to join.', false);
+            createGameBtn.disabled = false;
+            joinGameBtn.disabled = false;
+          }
+          return; // Don't re-initialize
         }
+
+        cleanupPeer(); // Clean up previous peer/connection first
+
         try {
-          const savedState = localStorage.getItem('ticTacSquaredState');
-          if (!savedState) return false;
-          const gameState = JSON.parse(savedState);
-          updateColors(); // Apply loaded preferences first
+          console.log(
+            `Initializing Peer ${idToUse ? 'with ID: ' + idToUse : 'with random ID'}`,
+          );
+          peer = new Peer(idToUse, {
+            // debug: 2 // Uncomment for verbose PeerJS logging
+          });
 
-          currentPlayer = gameState.currentPlayer;
-          activeBoard = gameState.activeBoard;
-          boards = gameState.boards;
-          boardWinners = gameState.boardWinners;
-          gameWinner = gameState.gameWinner;
-          gameActive = gameState.gameActive;
-          winningCombination = gameState.winningCombination;
-          lastMove = gameState.lastMove || {
-            boardIndex: -1,
-            cellIndex: -1,
-            player: '',
-          };
+          peer.on('open', id => {
+            fullPeerId = id; // Store the actual ID assigned by the server
+            console.log('PeerJS connection open. Actual ID:', fullPeerId);
+            isConnecting = false; // No longer in the process of connecting Peer itself
 
-          superBoard.innerHTML = '';
-          recreateGameUI();
-          coinFlipModal.style.display = 'none';
+            if (isCreating) {
+              // Successfully created the peer with the desired prefixed ID
+              createAttemptCount = 0; // Reset attempt counter
+              updateOnlineMenuStatus(
+                `Waiting for opponent... Code: ${shortGameCode}`,
+                false,
+                false,
+                true,
+              );
+              createGameBtn.disabled = true; // Keep disabled while waiting
+              joinGameBtn.disabled = true; // Can't join while hosting
+              createGameBtn.classList.remove('creating');
+              hideModal(onlineMenuModal); // Hide modal, show code in header
+              displayShortCode();
+            } else {
+              // Initialized PeerJS successfully (likely for joining, or first load)
+              updateOnlineMenuStatus(
+                'Ready. Create a game or enter code to join.',
+                false,
+              );
+              createGameBtn.disabled = false;
+              joinGameBtn.disabled = false;
+            }
+          });
 
-          // Trigger AI move if loaded state requires it (Human vs AI only)
-          if (
-            gameActive &&
-            !gameWinner &&
-            gameSettings.gameMode === 'ai' &&
-            currentPlayer === 'o'
-          ) {
-            aiThinking.classList.add('show');
-            pendingAIMove = setTimeout(() => {
-              pendingAIMove = null;
-              if (!gameActive || gameWinner) {
-                aiThinking.classList.remove('show');
-                return;
-              }
-              aiMakeMove();
-            }, 800);
+          peer.on('connection', incomingConn => {
+            console.log('Incoming connection attempt from:', incomingConn.peer);
+            if (conn && conn.open) {
+              console.warn(
+                'Already connected to a peer. Rejecting new connection.',
+              );
+              incomingConn.on('open', () => {
+                // Wait for their channel to open to send rejection
+                incomingConn.send({ type: 'error', message: 'Host is busy' });
+                setTimeout(() => incomingConn.close(), 500);
+              });
+              return;
+            }
+            if (isConnecting) {
+              // If we are currently trying to connect *out*, reject incoming
+              console.warn(
+                'Currently attempting to connect out. Rejecting incoming connection.',
+              );
+              incomingConn.on('open', () => {
+                incomingConn.send({
+                  type: 'error',
+                  message: 'Host is busy connecting',
+                });
+                setTimeout(() => incomingConn.close(), 500);
+              });
+              return;
+            }
+
+            console.log('Accepting connection from:', incomingConn.peer);
+            conn = incomingConn;
+            isConnecting = false; // No longer trying to connect out
+
+            // ---- Host side: Setup connection events FIRST ----
+            conn.on('open', () => {
+              console.log('Data connection open with', conn.peer);
+              // NOW it's safe to send initial data
+              playerSymbolOnline = 'x'; // Host is always X
+              startGameOnline(); // Set up local board for host
+
+              // Send assignment and initial state
+              sendData({
+                type: 'assignSymbol',
+                symbol: 'o', // Assign O to joiner
+                initialState: {
+                  currentPlayer: currentPlayer, // Should be 'x'
+                  activeBoard: activeBoard,
+                  boardWinners: boardWinners,
+                  boards: boards,
+                  rules: gameSettings.rules,
+                  xColor: gameSettings.xColor,
+                  oColor: gameSettings.oColor,
+                },
+              });
+              updateStatusDisplay(connectionStatus, ''); // Clear "Waiting..." message
+              updateOnlinePlayerUI(); // Update player displays
+            });
+
+            setupCommonConnectionEvents(); // Setup data, close, error handlers
+          });
+
+          peer.on('disconnected', () => {
+            console.warn('Peer disconnected from signaling server.');
+            // PeerJS attempts to reconnect automatically. Only intervene if game was active.
+            if (isOnlineGame && gameActive) {
+              updateStatusDisplay(
+                connectionStatus,
+                'Connection lost. Attempting to reconnect...',
+                true,
+              );
+            } else if (isOnlineGame && !conn) {
+              // If disconnected while waiting for opponent
+              updateStatusDisplay(
+                connectionStatus,
+                'Signaling server disconnected. Please try creating again.',
+                false,
+                true,
+              );
+              // Consider going back to menu automatically after a delay
+              setTimeout(showStartMenu, 4000);
+            }
+          });
+
+          peer.on('close', () => {
+            console.log('Peer instance destroyed.');
+            // Don't call handleDisconnection here, it's called when conn closes or error occurs
+            if (!conn && isOnlineGame) {
+              // If peer closed before a connection was made
+              handleDisconnection('Connection failed (Peer closed).');
+            }
+          });
+
+          peer.on('error', err => {
+            console.error('PeerJS Error:', err.type, err);
+            isConnecting = false; // Stop connection attempts on error
+            createGameBtn.classList.remove('creating');
+            let userMessage = `Connection Error (${err.type})`;
+            let isFatal = false;
+
+            switch (err.type) {
+              case 'browser-incompatible':
+                userMessage = 'Browser not supported for online play.';
+                isFatal = true;
+                break;
+              case 'disconnected':
+                // Usually handled by 'disconnected' event, but can happen here too
+                userMessage = 'Disconnected from signaling server.';
+                break;
+              case 'network':
+                userMessage = 'Network error. Check connection & firewall.';
+                break;
+              case 'peer-unavailable':
+                userMessage = 'Opponent not found. Check the code.';
+                break;
+              case 'server-error':
+                userMessage = 'Signaling server error. Please try again later.';
+                break;
+              case 'socket-error':
+                userMessage = 'Connection error (socket). Try again.';
+                break;
+              case 'socket-closed':
+                userMessage = 'Connection closed unexpectedly.';
+                break;
+              case 'unavailable-id':
+                userMessage = `Game code ${shortGameCode} is already in use.`;
+                if (isCreating && createAttemptCount < MAX_CREATE_ATTEMPTS) {
+                  console.log(
+                    `ID unavailable, attempt ${createAttemptCount + 1}. Retrying...`,
+                  );
+                  createAttemptCount++;
+                  // Automatically try creating with a new code
+                  createOnlineGame(true); // Pass true to indicate retry
+                  return; // Prevent further status updates for this error
+                } else if (isCreating) {
+                  userMessage += ' Please try creating again.';
+                  createAttemptCount = 0; // Reset counter after max attempts
+                }
+                break;
+              case 'webrtc':
+                userMessage =
+                  'WebRTC connection error. May be blocked by network.';
+                break;
+              default:
+                userMessage = `Unknown connection error: ${err.type}`;
+            }
+
+            // Show error in the appropriate place
+            if (onlineMenuModal.classList.contains('show')) {
+              updateOnlineMenuStatus(userMessage, false, true); // Show error in modal
+              createGameBtn.disabled = false; // Re-enable buttons
+              joinGameBtn.disabled = false;
+            } else if (isOnlineGame && gameActive) {
+              handleDisconnection(userMessage); // Handle as a disconnection during game
+            } else if (isOnlineGame) {
+              // Error during connection phase after modal closed
+              updateStatusDisplay(connectionStatus, userMessage, false, true);
+              setTimeout(showStartMenu, 4000); // Go back to menu after showing error
+            }
+
+            if (isFatal) {
+              // Disable online play buttons if browser is incompatible
+              playOnlineBtn.disabled = true;
+              playOnlineBtn.title = 'Browser not supported';
+              createGameBtn.disabled = true;
+              joinGameBtn.disabled = true;
+            }
+          });
+        } catch (error) {
+          console.error('Failed to initialize PeerJS:', error);
+          updateOnlineMenuStatus(
+            'Fatal Error initializing connection. Please refresh.',
+            false,
+            true,
+          );
+          isConnecting = false;
+          createGameBtn.disabled = true;
+          joinGameBtn.disabled = true;
+        }
+      }
+
+      function createOnlineGame(isRetry = false) {
+        if (isConnecting) return; // Prevent multiple attempts
+
+        if (!isRetry) {
+          createAttemptCount = 0; // Reset counter for fresh attempts
+          shortGameCode = generateShortCode();
+        } else {
+          shortGameCode = generateShortCode(); // Generate a new code for retry
+        }
+        fullPeerId = PEER_ID_PREFIX + shortGameCode;
+
+        console.log(
+          `Attempting to create game with code: ${shortGameCode} (Peer ID: ${fullPeerId})`,
+        );
+        isConnecting = true; // Mark as trying to establish peer connection
+        createGameBtn.disabled = true;
+        joinGameBtn.disabled = true;
+        createGameBtn.classList.add('creating');
+        updateOnlineMenuStatus(
+          `Creating game with code ${shortGameCode}...`,
+          true,
+        );
+
+        initializePeer(fullPeerId, true); // Initialize PeerJS with the specific ID
+      }
+
+      function joinOnlineGame() {
+        const enteredCode = gameCodeInput.value.trim().toUpperCase();
+        if (enteredCode.length !== SHORT_CODE_LENGTH) {
+          updateOnlineMenuStatus(
+            `Please enter a ${SHORT_CODE_LENGTH}-character code.`,
+            false,
+            true,
+          );
+          return;
+        }
+        if (!peer || peer.disconnected || peer.destroyed) {
+          updateOnlineMenuStatus(
+            'Not connected to signaling server. Re-initializing...',
+            true,
+            true,
+          );
+          initializePeer(); // Try to re-initialize before connecting
+          setTimeout(joinOnlineGame, 1500); // Retry joining after re-init attempt
+          return;
+        }
+        if (conn || isConnecting) {
+          console.log('Already connecting or connected.');
+          return;
+        }
+
+        const targetPeerId = PEER_ID_PREFIX + enteredCode;
+        console.log(
+          'Attempting to connect to:',
+          enteredCode,
+          `(Peer ID: ${targetPeerId})`,
+        );
+        isConnecting = true;
+        createGameBtn.disabled = true;
+        joinGameBtn.disabled = true;
+        updateOnlineMenuStatus(`Connecting to game ${enteredCode}...`, true);
+
+        try {
+          conn = peer.connect(targetPeerId, { reliable: true });
+          if (!conn) {
+            throw new Error('peer.connect returned null');
           }
 
-          console.log('Loaded saved game state');
-          return true;
-        } catch (error) {
-          console.error('Error loading saved game:', error);
-          localStorage.removeItem('ticTacSquaredState');
-          return false;
+          // --- Joiner side: Setup connection events ---
+          conn.on('open', () => {
+            console.log('Data connection open with host:', targetPeerId);
+            isConnecting = false; // Successfully initiated connection
+            // Now wait for the host to send the 'assignSymbol' message
+            updateStatusDisplay(
+              connectionStatus,
+              'Connected! Waiting for game data...',
+              true,
+            );
+            hideModal(onlineMenuModal); // Hide menu, show status in header
+          });
+
+          setupCommonConnectionEvents(); // Setup data, close, error handlers
+        } catch (err) {
+          console.error('Failed to initiate connection:', err);
+          updateOnlineMenuStatus(
+            `Failed to connect. Check code or network.`,
+            false,
+            true,
+          );
+          isConnecting = false;
+          createGameBtn.disabled = false; // Re-enable buttons on failure
+          joinGameBtn.disabled = false;
         }
       }
 
-      // Clear saved game state
-      function clearSavedGameState() {
-        localStorage.removeItem('ticTacSquaredState');
-        console.log('Cleared saved game state.');
+      // Sets up the common handlers (data, close, error) for the DataConnection
+      function setupCommonConnectionEvents() {
+        if (!conn) return;
+
+        conn.on('data', data => {
+          console.log('Received data:', data);
+          handleReceivedData(data);
+        });
+
+        conn.on('close', () => {
+          console.log('Connection closed.');
+          handleDisconnection('Opponent disconnected.');
+        });
+
+        conn.on('error', err => {
+          console.error('Connection Error:', err);
+          handleDisconnection(`Connection error: ${err.type || 'Unknown'}`);
+        });
       }
 
-      // Recreate the board UI from the current game state
-      function recreateGameUI() {
+      function displayShortCode() {
+        codeValueSpan.textContent = shortGameCode || 'Error';
+        gameCodeDisplay.style.display = 'inline-flex';
+        updateStatusDisplay(connectionStatus, ''); // Clear status once code is shown
+      }
+
+      function handleReceivedData(data) {
+        // Ignore data if connection isn't considered active or game ended
+        if (
+          !isOnlineGame ||
+          (!gameActive && data.type !== 'assignSymbol' && data.type !== 'error')
+        ) {
+          console.warn(
+            'Ignoring data received while connection/game is inactive:',
+            data.type,
+          );
+          return;
+        }
+
+        switch (data.type) {
+          case 'assignSymbol':
+            // Joiner receives this after conn.on('open')
+            if (playerSymbolOnline) {
+              console.warn('Received assignSymbol multiple times?');
+              return; // Avoid resetting state if already assigned
+            }
+            playerSymbolOnline = data.symbol;
+            gameSettings.rules = data.initialState.rules;
+            gameSettings.xColor = data.initialState.xColor;
+            gameSettings.oColor = data.initialState.oColor;
+            updateColors();
+
+            // Load initial state from host
+            currentPlayer = data.initialState.currentPlayer;
+            activeBoard = data.initialState.activeBoard;
+            boards = data.initialState.boards;
+            boardWinners = data.initialState.boardWinners;
+            gameActive = true; // Game is now officially active
+            isConnecting = false; // Ensure connecting flag is false
+
+            createBoardUI(); // Create board structure
+            recreateGameUI(); // Populate with received state
+            updateStatusDisplay(connectionStatus, ''); // Clear status message
+            updateOnlinePlayerUI();
+            console.log(
+              `Assigned symbol: ${playerSymbolOnline}. Game starting.`,
+            );
+            break;
+
+          case 'move':
+            // Received opponent's move
+            const opponentSymbol = playerSymbolOnline === 'x' ? 'o' : 'x';
+            if (currentPlayer !== opponentSymbol) {
+              console.warn("Received move but it's not opponent's turn.");
+              // Optional: Request resync? For now, ignore.
+              return;
+            }
+            if (!isValidMove(data.boardIndex, data.cellIndex)) {
+              console.error('Received invalid move from opponent:', data);
+              // Optional: Send error back or request resync?
+              sendData({ type: 'error', message: 'Invalid move received' });
+              return;
+            }
+            makeMove(data.boardIndex, data.cellIndex, opponentSymbol);
+            break;
+
+          case 'gameOver':
+            // Opponent declared game over (likely because *their* move caused it)
+            // We trust the opponent's calculation for simplicity here,
+            // but a robust system might verify the win condition locally.
+            if (gameActive) {
+              // Only process if game is still considered active locally
+              gameWinner = data.winner;
+              winningCombination = data.winningCombination;
+              gameActive = false;
+              updateBoardUI(); // Update board states visually based on received winner
+              displayEndGameMessage(); // Display result based on received winner
+              gameOver.classList.add('show');
+              updateOnlinePlayerUI(); // Update active state
+            }
+            break;
+
+          case 'quit':
+            handleDisconnection('Opponent quit the game.');
+            break;
+
+          case 'error':
+            console.error('Received error message from peer:', data.message);
+            if (
+              data.message === 'Host is busy' ||
+              data.message === 'Host is busy connecting'
+            ) {
+              updateOnlineMenuStatus(
+                data.message + '. Please try again later.',
+                false,
+                true,
+              );
+              setTimeout(showStartMenu, 3000);
+            } else {
+              // Handle other potential errors if needed
+              updateStatusDisplay(
+                connectionStatus,
+                `Opponent Error: ${data.message}`,
+                false,
+                true,
+              );
+            }
+            cleanupPeer(); // Disconnect on receiving error
+            break;
+
+          default:
+            console.warn('Received unknown data type:', data.type);
+        }
+      }
+
+      function sendData(data) {
+        if (conn && conn.open) {
+          conn.send(data);
+        } else {
+          console.warn('Cannot send data, connection not open or available.', {
+            connOpen: conn?.open,
+          });
+          // Avoid calling handleDisconnection directly here, as it might be a temporary issue
+          // The close/error handlers on the connection should manage disconnections.
+          // Maybe show a temporary warning?
+          // updateStatusDisplay(connectionStatus, "Cannot send data - connection issue?", false, true);
+        }
+      }
+
+      function handleDisconnection(reason) {
+        if (!isOnlineGame) return; // Only handle for online games
+
+        console.log('Handling disconnection:', reason);
+        const wasGameActive = gameActive; // Store if game was running before cleanup
+        gameActive = false; // Mark game as inactive
+
+        if (wasGameActive) {
+          // Game was in progress, the remaining player wins
+          gameWinner = playerSymbolOnline || 'tie'; // Assign win to current player, or tie if symbol unknown
+          winningCombination = null; // No line for disconnect/error
+          displayEndGameMessage(
+            `${reason}. You ${gameWinner === playerSymbolOnline ? 'win' : 'lose'}!`,
+          );
+          gameOver.classList.add('show');
+        } else if (!gameOver.classList.contains('show')) {
+          // Game wasn't active, show status (unless game over screen already shown)
+          updateStatusDisplay(connectionStatus, reason, false, true); // Show reason as error
+          // Go back to menu after delay if connection failed before game start
+          setTimeout(showStartMenu, 4000);
+        }
+
+        cleanupPeer(); // Clean up PeerJS objects
+        updateOnlinePlayerUI(); // Clear active states
+        quitOnlineBtn.style.display = 'none';
+        newGameBtn.innerHTML = '<i class="fas fa-plus-circle"></i> New Game';
+        settingsBtn.style.display = 'inline-flex';
+        isConnecting = false; // Reset connection flag
+      }
+
+      function cleanupPeer() {
+        console.log('Cleaning up PeerJS connection...');
+        if (conn) {
+          conn.off('data'); // Remove listeners
+          conn.off('open');
+          conn.off('close');
+          conn.off('error');
+          if (conn.open) {
+            // Only close if it's open
+            conn.close();
+          }
+          conn = null;
+        }
+        if (peer) {
+          peer.off('open'); // Remove listeners
+          peer.off('connection');
+          peer.off('disconnected');
+          peer.off('close');
+          peer.off('error');
+          if (!peer.destroyed) {
+            peer.destroy();
+          }
+          peer = null;
+        }
+        shortGameCode = null;
+        fullPeerId = null;
+        playerSymbolOnline = null;
+        // isOnlineGame should be reset by showStartMenu or when starting local game
+      }
+
+      // --- Game Start Logic ---
+
+      function startGame(startingPlayer) {
+        // Local game start
+        /* ... (same as before) ... */
+        currentPlayer = startingPlayer;
+        gameActive = true;
+        activeBoard = null;
+        updateOnlinePlayerUI();
+        updateActiveBoards();
+        saveGameState(); // Save local state
+
+        if (
+          gameSettings.gameMode === 'ai' &&
+          currentPlayer === 'o' &&
+          !isOnlineGame
+        ) {
+          updateStatusDisplay(aiThinking, 'AI thinking...', true);
+          pendingAIMove = setTimeout(() => {
+            /* ... AI move logic ... */
+            pendingAIMove = null;
+            if (!gameActive || gameWinner) {
+              updateStatusDisplay(aiThinking, '');
+              return;
+            }
+            aiMakeMove();
+          }, 800);
+        }
+      }
+
+      function startGameOnline() {
+        // Online game setup (called by host on conn open, joiner on receiving state)
+        resetGameState();
+        // Rules/Colors are synced via 'assignSymbol' data for joiner
+        // Host uses their current settings initially
+        updateColors();
+        createBoardUI();
+
+        // Host sets initial state, joiner gets it from data
+        if (!playerSymbolOnline) playerSymbolOnline = 'x'; // Host default if called directly
+
+        if (playerSymbolOnline === 'x') {
+          // Host always starts
+          currentPlayer = 'x';
+        } else {
+          // Joiner's state is set in handleReceivedData 'assignSymbol'
+          // This function might be called *before* state is received when joiner UI is created
+          if (!currentPlayer) currentPlayer = 'x'; // Assume x starts until state sync
+        }
+
+        gameActive = true;
+        isOnlineGame = true; // Explicitly set
+        isConnecting = false;
+        activeBoard = null;
+        updateOnlinePlayerUI();
+        updateActiveBoards();
+
+        settingsBtn.style.display = 'none';
+        quitOnlineBtn.style.display = 'inline-flex';
+        newGameBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Rematch?'; // Change button purpose online
+
+        console.log(
+          `Online game started/updated. You are ${playerSymbolOnline}. Turn: ${currentPlayer}`,
+        );
+      }
+
+      // --- Board Creation and UI Updates ---
+
+      function createBoardUI() {
+        /* ... (same as before) ... */
+        superBoard.innerHTML = '';
+        document.querySelectorAll('.winning-line').forEach(el => el.remove());
         for (let i = 0; i < 9; i++) {
           const board = document.createElement('div');
           board.className = 'board';
@@ -1215,42 +1939,43 @@
             cell.dataset.board = i;
             cell.dataset.cell = j;
             cell.addEventListener('click', handleCellClick);
-            if (boards[i][j] === 'x') {
-              cell.classList.add('x', 'occupied');
-              cell.innerHTML = '<i class="fas fa-times fa-lg"></i>';
-              cell.style.color = gameSettings.xColor;
-            } else if (boards[i][j] === 'o') {
-              cell.classList.add('o', 'occupied');
-              cell.innerHTML = '<i class="far fa-circle"></i>';
-              cell.style.color = gameSettings.oColor;
-            }
             board.appendChild(cell);
-          }
-          let boardOpacity = '1';
-          if (boardWinners[i] === 'x') {
-            board.classList.add('won-x');
-            board.style.borderColor = gameSettings.xColor;
-            board.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
-            boardOpacity = '0.6';
-          } else if (boardWinners[i] === 'o') {
-            board.classList.add('won-o');
-            board.style.borderColor = gameSettings.oColor;
-            board.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
-            boardOpacity = '0.6';
-          } else if (boardWinners[i] === 'tie') {
-            board.classList.add('tie');
-            boardOpacity = '0.6';
-          }
-          if (boardOpacity !== '1') {
-            board.querySelectorAll('.cell').forEach(cell => {
-              cell.style.opacity = boardOpacity;
-            });
           }
           superBoard.appendChild(board);
         }
+      }
 
-        playerXDisplay.classList.toggle('active', currentPlayer === 'x');
-        playerODisplay.classList.toggle('active', currentPlayer === 'o');
+      function recreateGameUI() {
+        /* ... (same as before - populates from state) ... */
+        createBoardUI(); // Ensure clean structure
+
+        for (let i = 0; i < 9; i++) {
+          for (let j = 0; j < 9; j++) {
+            if (boards[i][j]) {
+              const cell = document.querySelector(
+                `.cell[data-board="${i}"][data-cell="${j}"]`,
+              );
+              if (cell) {
+                cell.classList.add(boards[i][j], 'occupied');
+                cell.innerHTML =
+                  boards[i][j] === 'x'
+                    ? '<i class="fas fa-times fa-lg"></i>'
+                    : '<i class="far fa-circle"></i>';
+                cell.style.color =
+                  boards[i][j] === 'x'
+                    ? gameSettings.xColor
+                    : gameSettings.oColor;
+                cell.style.cursor = 'default';
+              }
+            }
+          }
+          if (boardWinners[i]) {
+            const winningCombo = findWinningCombo(i);
+            updateBoardUI(i, winningCombo); // Update visual state + draw line
+          }
+        }
+
+        updateOnlinePlayerUI();
         updateActiveBoards();
 
         if (gameWinner) {
@@ -1259,130 +1984,217 @@
             setTimeout(() => drawSuperWinningLine(winningCombination), 100);
           }
           gameOver.classList.add('show');
+          gameActive = false;
         } else if (!gameActive && currentPlayer) {
-          playerXDisplay.classList.toggle('active', currentPlayer === 'x');
-          playerODisplay.classList.toggle('active', currentPlayer === 'o');
+          updateOnlinePlayerUI();
           updateActiveBoards();
         }
 
-        for (let i = 0; i < 9; i++) {
-          if (boardWinners[i] === 'x' || boardWinners[i] === 'o') {
-            const winningCombo = findWinningCombo(i);
-            if (winningCombo) {
-              setTimeout(() => drawWinningLine(i, winningCombo), 100);
-            }
-          }
-        }
         findAndHighlightLastMove();
       }
 
-      // Find winning combo for a board
-      function findWinningCombo(boardIndex) {
-        if (
-          boardWinners[boardIndex] !== 'x' &&
-          boardWinners[boardIndex] !== 'o'
-        )
-          return null;
-        const board = boards[boardIndex];
-        const winningCombos = [
-          [0, 1, 2],
-          [3, 4, 5],
-          [6, 7, 8],
-          [0, 3, 6],
-          [1, 4, 7],
-          [2, 5, 8],
-          [0, 4, 8],
-          [2, 4, 6],
-        ];
-        for (const combo of winningCombos) {
-          const [a, b, c] = combo;
-          if (
-            board[a] === boardWinners[boardIndex] &&
-            board[b] === boardWinners[boardIndex] &&
-            board[c] === boardWinners[boardIndex]
-          ) {
-            return combo;
-          }
-        }
-        console.warn(
-          `Could not find winning combo for board ${boardIndex} marked as won by ${boardWinners[boardIndex]}`,
+      function updateColors() {
+        /* ... (same as before) ... */
+        document.documentElement.style.setProperty(
+          '--x-color',
+          gameSettings.xColor,
         );
-        return null;
-      }
-
-      // --- Coin Flip Logic ---
-      function flipCoin() {
-        coin.classList.remove('flipping');
-        coinResult.textContent = '';
-        void coin.offsetWidth; // Force reflow to restart animation
-
-        // Determine who will go first
-        const randomResult = Math.random();
-        const winner = randomResult < 0.5 ? 'x' : 'o';
-
-        // Start flipping animation
-        coin.classList.add('flipping');
-
-        setTimeout(() => {
-          // After animation, remove the class to stop it
-          coin.classList.remove('flipping');
-
-          // Set the final rotation explicitly based on winner
-          if (winner === 'x') {
-            // Show X side up (heads)
-            coin.style.transform = 'rotateY(0deg) rotateX(0deg)';
-          } else {
-            // Show O side up (tails)
-            coin.style.transform = 'rotateY(180deg) rotateX(0deg)';
+        document.documentElement.style.setProperty(
+          '--o-color',
+          gameSettings.oColor,
+        );
+        playerXDisplay.style.color = gameSettings.xColor;
+        playerODisplay.style.color = gameSettings.oColor;
+        if (xColorPicker) {
+          xColorPicker.value = gameSettings.xColor;
+          xColorPicker.style.backgroundColor = gameSettings.xColor;
+        }
+        if (oColorPicker) {
+          oColorPicker.value = gameSettings.oColor;
+          oColorPicker.style.backgroundColor = gameSettings.oColor;
+        }
+        document.querySelectorAll('.board.won-x').forEach(b => {
+          b.style.borderColor = gameSettings.xColor;
+          b.style.backgroundColor = hexToRGBA(gameSettings.xColor, 0.2);
+        });
+        document.querySelectorAll('.board.won-o').forEach(b => {
+          b.style.borderColor = gameSettings.oColor;
+          b.style.backgroundColor = hexToRGBA(gameSettings.oColor, 0.2);
+        });
+        document
+          .querySelectorAll('.cell.x')
+          .forEach(c => (c.style.color = gameSettings.xColor));
+        document
+          .querySelectorAll('.cell.o')
+          .forEach(c => (c.style.color = gameSettings.oColor));
+        // Update winning lines (ensure this is called after state updates)
+        document.querySelectorAll('.winning-line').forEach(line => {
+          const boardElement = line.closest('.board');
+          if (boardElement) {
+            const boardIndex = parseInt(boardElement.dataset.index);
+            if (boardWinners[boardIndex] === 'x')
+              line.style.backgroundColor = gameSettings.xColor;
+            else if (boardWinners[boardIndex] === 'o')
+              line.style.backgroundColor = gameSettings.oColor;
+          } else if (
+            superBoard.contains(line) &&
+            gameWinner &&
+            gameWinner !== 'tie'
+          ) {
+            line.style.backgroundColor =
+              gameWinner === 'x' ? gameSettings.xColor : gameSettings.oColor;
           }
-
-          // Update result text with matching color
-          coinResult.innerHTML = `<span style="color: ${
-            winner === 'x' ? gameSettings.xColor : gameSettings.oColor
-          }; font-weight: bold;">${winner.toUpperCase()} goes first!</span>`;
-
-          // Start the game with the correct player
-          setTimeout(() => {
-            coinFlipModal.style.display = 'none';
-            startGame(winner);
-          }, 1500);
-        }, 1500);
+        });
+        const coinHeads = document.querySelector('.coin-side.heads');
+        if (coinHeads) coinHeads.style.color = gameSettings.xColor;
+        const coinTails = document.querySelector('.coin-side.tails');
+        if (coinTails) coinTails.style.color = gameSettings.oColor;
       }
 
-      // --- Game Start Logic (after coin flip) ---
-      function startGame(startingPlayer) {
-        currentPlayer = startingPlayer;
-        gameActive = true;
-        activeBoard = null;
-        playerXDisplay.classList.toggle('active', currentPlayer === 'x');
-        playerODisplay.classList.toggle('active', currentPlayer === 'o');
-        updateActiveBoards();
-        saveGameState();
-        // Trigger AI move only if AI (O) starts in Human vs AI mode
-        if (gameSettings.gameMode === 'ai' && currentPlayer === 'o') {
-          aiThinking.classList.add('show');
-          pendingAIMove = setTimeout(() => {
-            pendingAIMove = null;
-            if (!gameActive) return;
-            aiMakeMove();
-          }, 800);
+      function updateOnlinePlayerUI() {
+        /* ... (same as before - handles local/online display) ... */
+        if (isOnlineGame) {
+          playerXRole.textContent =
+            playerSymbolOnline === 'x' ? 'You' : 'Opponent';
+          playerORole.textContent =
+            playerSymbolOnline === 'o' ? 'You' : 'Opponent';
+          const isMyTurn = gameActive && currentPlayer === playerSymbolOnline;
+          playerXDisplay.classList.toggle(
+            'active',
+            playerSymbolOnline === 'x' && isMyTurn,
+          );
+          playerODisplay.classList.toggle(
+            'active',
+            playerSymbolOnline === 'o' && isMyTurn,
+          );
+          playerXDisplay.classList.toggle(
+            'inactive',
+            gameActive && playerSymbolOnline === 'x' && !isMyTurn,
+          );
+          playerODisplay.classList.toggle(
+            'inactive',
+            gameActive && playerSymbolOnline === 'o' && !isMyTurn,
+          );
+          updateStatusDisplay(aiThinking, ''); // No AI
+        } else {
+          // Local
+          playerXRole.textContent = 'Player X';
+          playerORole.textContent =
+            gameSettings.gameMode === 'human' ? 'Player O' : 'AI';
+          playerXDisplay.querySelector('i:first-of-type').className =
+            'fas fa-user';
+          playerODisplay.querySelector('i:first-of-type').className =
+            `fas ${gameSettings.gameMode === 'human' ? 'fa-user' : 'fa-robot'}`;
+          playerXDisplay.classList.toggle(
+            'active',
+            gameActive && currentPlayer === 'x',
+          );
+          playerODisplay.classList.toggle(
+            'active',
+            gameActive && currentPlayer === 'o',
+          );
+          playerXDisplay.classList.remove('inactive');
+          playerODisplay.classList.remove('inactive');
+          // Show/Hide AI thinking status only if relevant
+          aiThinking.classList.toggle(
+            'show',
+            gameActive &&
+              !gameWinner &&
+              gameSettings.gameMode === 'ai' &&
+              currentPlayer === 'o',
+          );
+        }
+        // Clear connection status if game is active or not online
+        if (gameActive || !isOnlineGame) {
+          updateStatusDisplay(connectionStatus, '');
         }
       }
 
-      // Update initGame to clear saved state and start the coin flip process
-      function initGame() {
-        if (pendingAIMove !== null) {
-          clearTimeout(pendingAIMove);
-          pendingAIMove = null;
+      function updateActiveBoards() {
+        /* ... (same as before, handles active/inactive styling) ... */
+        document.querySelectorAll('.board').forEach(board => {
+          board.classList.remove('active', 'inactive-board');
+          board.style.boxShadow = ''; // Clear potential dimmed highlight
+          board.style.animation = ''; // Clear pulse
+          board.querySelectorAll('.cell').forEach(cell => {
+            cell.style.cursor =
+              boardWinners[board.dataset.index] ||
+              boards[board.dataset.index][cell.dataset.cell]
+                ? 'default'
+                : 'pointer'; // Base cursor
+            cell.classList.remove('disabled-cell');
+          });
+        });
+
+        if (!gameActive || gameWinner) {
+          if (gameWinner) {
+            document.querySelectorAll('.board').forEach((board, index) => {
+              if (!boardWinners[index]) board.classList.add('inactive-board');
+            });
+          }
+          return;
         }
-        clearSavedGameState();
 
-        // Don't reset settings to defaults if we have preferences saved
-        // The settings will be whatever was last saved or default if nothing was saved
-        // (The loadPreferences function already handles defaulting if needed)
+        let activeBoardIndexes = [];
+        if (gameSettings.rules === 'standard' && activeBoard !== null) {
+          if (boardWinners[activeBoard] === '') {
+            activeBoardIndexes.push(activeBoard);
+          } else {
+            boardWinners.forEach((winner, index) => {
+              if (winner === '') activeBoardIndexes.push(index);
+            });
+            activeBoard = null; // Update state to reflect free choice
+          }
+        } else {
+          // Free play or start or sent to completed board
+          boardWinners.forEach((winner, index) => {
+            if (winner === '') activeBoardIndexes.push(index);
+          });
+          activeBoard = null; // Update state to reflect free choice
+        }
 
-        superBoard.innerHTML = '';
-        document.querySelectorAll('.winning-line').forEach(el => el.remove());
+        const isMyTurn = !isOnlineGame || currentPlayer === playerSymbolOnline;
+
+        document.querySelectorAll('.board').forEach((boardElement, index) => {
+          const isBoardActiveTarget = activeBoardIndexes.includes(index);
+          const isBoardWon = !!boardWinners[index];
+
+          if (isBoardActiveTarget && !isBoardWon) {
+            if (isMyTurn) {
+              boardElement.classList.add('active'); // Highlight playable boards for current player
+              // Ensure animation restarts if needed
+              boardElement.style.animation = 'pulse 1.5s infinite';
+              boardElement
+                .querySelectorAll('.cell:not(.occupied)')
+                .forEach(cell => {
+                  cell.style.cursor = 'pointer';
+                });
+            } else {
+              // Opponent's turn: Show active target, but don't allow clicks
+              boardElement.classList.add('active'); // Still show it's the target
+              boardElement.style.boxShadow = '0 0 0 3px var(--disabled-color)'; // Dimmer highlight
+              boardElement.querySelectorAll('.cell').forEach(cell => {
+                // Disable all cells in opponent's active board
+                cell.style.cursor = 'default';
+                cell.classList.add('disabled-cell');
+              });
+            }
+          } else if (!isBoardActiveTarget && !isBoardWon) {
+            // Board is not the active target and not won/tied
+            boardElement.classList.add('inactive-board'); // Dim it
+            boardElement.querySelectorAll('.cell').forEach(cell => {
+              cell.style.cursor = 'default';
+              cell.classList.add('disabled-cell');
+            });
+          }
+          // If board is won/tied, styling is handled by updateBoardUI
+        });
+      }
+
+      // --- Game Logic ---
+
+      function resetGameState() {
+        /* ... (same as before) ... */
         currentPlayer = '';
         activeBoard = null;
         boards = Array(9)
@@ -1393,185 +2205,167 @@
         gameActive = false;
         winningCombination = null;
         lastMove = { boardIndex: -1, cellIndex: -1, player: '' };
-        playerXDisplay.classList.remove('active');
-        playerODisplay.classList.remove('active');
-        updateColors();
-        gameOver.classList.remove('show');
-        aiThinking.classList.remove('show');
-        for (let i = 0; i < 9; i++) {
-          const board = document.createElement('div');
-          board.className = 'board';
-          board.dataset.index = i;
-          for (let j = 0; j < 9; j++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.dataset.board = i;
-            cell.dataset.cell = j;
-            cell.addEventListener('click', handleCellClick);
-            board.appendChild(cell);
-          }
-          superBoard.appendChild(board);
-        }
-        coinFlipModal.style.display = 'flex';
-        flipCoin();
+        if (pendingAIMove) clearTimeout(pendingAIMove);
+        pendingAIMove = null;
       }
 
-      // Handle cell click event
+      function isValidMove(boardIndex, cellIndex) {
+        /* ... (same as before) ... */
+        if (!gameActive || gameWinner) return false;
+        if (boards[boardIndex]?.[cellIndex] !== '') return false;
+        if (boardWinners[boardIndex] !== '') return false;
+
+        let isValidBoard = false;
+        if (activeBoard === null) {
+          // Any playable board
+          isValidBoard = boardWinners[boardIndex] === '';
+        } else {
+          // Specific board required
+          isValidBoard = boardIndex === activeBoard;
+        }
+        // Allow playing anywhere if sent to completed board (standard rules)
+        if (
+          !isValidBoard &&
+          gameSettings.rules === 'standard' &&
+          activeBoard !== null &&
+          boardWinners[activeBoard] !== ''
+        ) {
+          isValidBoard = boardWinners[boardIndex] === '';
+        }
+        return isValidBoard;
+      }
+
       function handleCellClick(event) {
-        if (!gameActive || gameWinner) return;
+        /* ... (mostly same, ensure validation) ... */
+        if (!gameActive || gameWinner || isConnecting) return;
+
         const cellElement = event.currentTarget;
         const boardIndex = parseInt(cellElement.dataset.board);
         const cellIndex = parseInt(cellElement.dataset.cell);
-        // Determine if it's a human player's turn
-        const isHumanTurn =
-          gameSettings.gameMode === 'human' ||
-          (gameSettings.gameMode === 'ai' && currentPlayer === 'x');
-        if (!isHumanTurn) {
-          console.log('Not human turn, click ignored.');
+
+        let isMyTurn;
+        if (isOnlineGame) {
+          isMyTurn = currentPlayer === playerSymbolOnline;
+        } else {
+          isMyTurn =
+            gameSettings.gameMode === 'human' ||
+            (gameSettings.gameMode === 'ai' && currentPlayer === 'x');
+        }
+
+        if (!isMyTurn) {
+          console.log('Not your turn.');
           return;
         }
-        if (boards[boardIndex][cellIndex] !== '') return;
-        const boardElement = cellElement.closest('.board');
-        if (!boardElement.classList.contains('active')) return;
 
-        makeMove(boardIndex, cellIndex, currentPlayer);
+        if (!isValidMove(boardIndex, cellIndex)) {
+          console.log('Invalid move clicked.');
+          cellElement.style.animation = 'shake 0.5s';
+          setTimeout(() => (cellElement.style.animation = ''), 500);
+          return;
+        }
 
-        // Trigger AI move if applicable (Human vs AI mode, and now it's O's turn)
-        if (
-          gameActive &&
-          !gameWinner &&
-          gameSettings.gameMode === 'ai' &&
-          currentPlayer === 'o'
-        ) {
-          aiThinking.classList.add('show');
-          if (pendingAIMove !== null) {
-            clearTimeout(pendingAIMove);
-            pendingAIMove = null;
+        // --- Make the Move Locally ---
+        makeMove(boardIndex, cellIndex, currentPlayer); // Updates state and UI
+
+        // --- Post-Move Actions ---
+        if (isOnlineGame) {
+          sendData({ type: 'move', boardIndex, cellIndex });
+          if (gameWinner) {
+            // Check if *my* move ended the game
+            sendData({
+              type: 'gameOver',
+              winner: gameWinner,
+              winningCombination: winningCombination,
+            });
+            // endGame() is called inside makeMove if gameWinner is set
           }
-          pendingAIMove = setTimeout(() => {
-            pendingAIMove = null;
-            if (!gameActive || gameWinner) {
-              aiThinking.classList.remove('show');
-              return;
-            }
-            aiMakeMove();
-          }, 800);
+        } else {
+          // Local Game
+          if (gameWinner) {
+            // endGame() called inside makeMove
+          } else if (
+            gameActive &&
+            gameSettings.gameMode === 'ai' &&
+            currentPlayer === 'o'
+          ) {
+            updateStatusDisplay(aiThinking, 'AI thinking...', true);
+            if (pendingAIMove) clearTimeout(pendingAIMove);
+            pendingAIMove = setTimeout(() => {
+              /* ... AI move ... */
+              pendingAIMove = null;
+              if (!gameActive || gameWinner) {
+                updateStatusDisplay(aiThinking, '');
+                return;
+              }
+              aiMakeMove();
+            }, 800);
+          }
         }
       }
 
-      // Make a move (called by human click or AI)
       function makeMove(boardIndex, cellIndex, player) {
-        if (!gameActive || gameWinner || boards[boardIndex][cellIndex] !== '') {
-          console.warn(
-            `Invalid move attempt: b${boardIndex}, c${cellIndex} by ${player}`,
-          );
+        /* ... (same core logic) ... */
+        if (!gameActive || gameWinner || boards[boardIndex]?.[cellIndex] !== '')
           return;
-        }
+
         boards[boardIndex][cellIndex] = player;
+
+        // Update Last Move UI
         const lastCell = document.querySelector('.cell.last-move');
         if (lastCell) lastCell.classList.remove('last-move');
         const cell = document.querySelector(
           `.cell[data-board="${boardIndex}"][data-cell="${cellIndex}"]`,
         );
-        cell.classList.add(player, 'occupied', 'last-move');
-        cell.innerHTML =
-          player === 'x'
-            ? '<i class="fas fa-times fa-lg"></i>'
-            : '<i class="far fa-circle"></i>';
-        cell.style.color =
-          player === 'x' ? gameSettings.xColor : gameSettings.oColor;
+        if (cell) {
+          cell.classList.add(player, 'occupied', 'last-move');
+          cell.innerHTML =
+            player === 'x'
+              ? '<i class="fas fa-times fa-lg"></i>'
+              : '<i class="far fa-circle"></i>';
+          cell.style.color =
+            player === 'x' ? gameSettings.xColor : gameSettings.oColor;
+          cell.style.cursor = 'default';
+        }
         lastMove = { boardIndex, cellIndex, player };
-        if (boardWinners[boardIndex] === '') {
-          checkBoardWinner(boardIndex);
+
+        // Check board win (mutates boardWinners)
+        let oldBoardWinner = boardWinners[boardIndex];
+        checkBoardWinner(boardIndex);
+        if (
+          boardWinners[boardIndex] !== oldBoardWinner &&
+          boardWinners[boardIndex] !== ''
+        ) {
+          updateBoardUI(boardIndex, findWinningCombo(boardIndex)); // Update UI if board just completed
         }
 
-        const nextPlayer = player === 'x' ? 'o' : 'x';
-        let nextActiveBoard = null;
-        if (gameSettings.rules === 'standard') {
-          nextActiveBoard = boardWinners[cellIndex] === '' ? cellIndex : null;
-        } else {
-          nextActiveBoard = null;
+        // Check game win (mutates gameWinner, gameActive)
+        checkGameWinner();
+
+        if (gameWinner) {
+          endGame(); // Handle end game UI updates
+          return; // Stop further processing
         }
 
-        checkGameWinner(); // Check winner *before* switching player perspective
+        // If game continues, determine next state
+        if (gameActive) {
+          const nextPlayer = player === 'x' ? 'o' : 'x';
+          let nextActiveBoard = null;
+          if (gameSettings.rules === 'standard') {
+            nextActiveBoard = boardWinners[cellIndex] === '' ? cellIndex : null;
+          } // else: free play, nextActiveBoard remains null
 
-        if (gameActive && !gameWinner) {
           currentPlayer = nextPlayer;
           activeBoard = nextActiveBoard;
-          playerXDisplay.classList.toggle('active', currentPlayer === 'x');
-          playerODisplay.classList.toggle('active', currentPlayer === 'o');
+
+          updateOnlinePlayerUI();
           updateActiveBoards();
-        } else if (gameWinner) {
-          playerXDisplay.classList.remove('active');
-          playerODisplay.classList.remove('active');
-          updateActiveBoards();
-        }
-        saveGameState();
-      }
 
-      // Find and highlight the last move made
-      function findAndHighlightLastMove() {
-        document.querySelectorAll('.cell.last-move').forEach(cell => {
-          cell.classList.remove('last-move');
-        });
-        if (
-          lastMove &&
-          lastMove.boardIndex !== -1 &&
-          lastMove.cellIndex !== -1
-        ) {
-          const lastCellElement = document.querySelector(
-            `.cell[data-board="${lastMove.boardIndex}"][data-cell="${lastMove.cellIndex}"]`,
-          );
-          if (lastCellElement) {
-            lastCellElement.classList.add('last-move');
-          }
+          if (!isOnlineGame) saveGameState(); // Save local state
         }
       }
 
-      // Function to display the end game message
-      function displayEndGameMessage() {
-        if (gameWinner === 'x') {
-          // Removed AIvAI check
-          if (gameSettings.gameMode === 'ai')
-            gameOverMessage.textContent = 'You Win!';
-          else gameOverMessage.textContent = 'Player X Wins!';
-          gameOverMessage.className = 'game-over-message x';
-        } else if (gameWinner === 'o') {
-          // Removed AIvAI check
-          if (gameSettings.gameMode === 'ai')
-            gameOverMessage.textContent = 'AI Wins!';
-          else gameOverMessage.textContent = 'Player O Wins!';
-          gameOverMessage.className = 'game-over-message o';
-        } else {
-          gameOverMessage.textContent = 'Game Tied!';
-          gameOverMessage.className = 'game-over-message tie';
-        }
-      }
-
-      // Update endGame to use the display function and save state
-      function endGame() {
-        if (!gameActive) return;
-        gameActive = false;
-        aiThinking.classList.remove('show');
-        if (pendingAIMove) {
-          clearTimeout(pendingAIMove);
-          pendingAIMove = null;
-        }
-        playerXDisplay.classList.remove('active');
-        playerODisplay.classList.remove('active');
-        document
-          .querySelectorAll('.board.active')
-          .forEach(b => b.classList.remove('active'));
-        displayEndGameMessage();
-        if (winningCombination && gameWinner !== 'tie') {
-          setTimeout(() => drawSuperWinningLine(winningCombination), 100);
-        }
-        saveGameState();
-        gameOver.classList.add('show');
-      }
-
-      // Check if a board has a winner
       function checkBoardWinner(boardIndex) {
+        /* ... (same logic) ... */
         if (boardWinners[boardIndex] !== '') return;
         const boardState = boards[boardIndex];
         const winningCombos = [
@@ -1592,216 +2386,14 @@
             boardState[a] === boardState[c]
           ) {
             boardWinners[boardIndex] = boardState[a];
-            updateBoardUI(boardIndex, combo);
             return;
           }
         }
-        if (!boardState.includes('')) {
-          boardWinners[boardIndex] = 'tie';
-          updateBoardUI(boardIndex);
-        }
+        if (!boardState.includes('')) boardWinners[boardIndex] = 'tie';
       }
 
-      // Check if a temporary board state has a winner ('x', 'o', 'tie', or '')
-      function checkTempBoardWinner(boardState) {
-        const winningCombos = [
-          [0, 1, 2],
-          [3, 4, 5],
-          [6, 7, 8],
-          [0, 3, 6],
-          [1, 4, 7],
-          [2, 5, 8],
-          [0, 4, 8],
-          [2, 4, 6],
-        ];
-        for (const combo of winningCombos) {
-          const [a, b, c] = combo;
-          if (
-            boardState[a] &&
-            boardState[a] === boardState[b] &&
-            boardState[a] === boardState[c]
-          ) {
-            return boardState[a];
-          }
-        }
-        if (!boardState.includes('')) {
-          return 'tie';
-        }
-        return '';
-      }
-
-      // Update board UI when it's won or tied
-      function updateBoardUI(boardIndex, winningCombo = null) {
-        const boardElement = document.querySelector(
-          `.board[data-index="${boardIndex}"]`,
-        );
-        if (!boardElement) return;
-        let boardOpacity = '1';
-        boardElement.classList.remove('won-x', 'won-o', 'tie');
-        boardElement.style.backgroundColor = '';
-        boardElement.style.borderColor = '';
-        if (boardWinners[boardIndex] === 'x') {
-          boardElement.classList.add('won-x');
-          boardElement.style.borderColor = gameSettings.xColor;
-          boardElement.style.backgroundColor = hexToRGBA(
-            gameSettings.xColor,
-            0.2,
-          );
-          boardOpacity = '0.6';
-        } else if (boardWinners[boardIndex] === 'o') {
-          boardElement.classList.add('won-o');
-          boardElement.style.borderColor = gameSettings.oColor;
-          boardElement.style.backgroundColor = hexToRGBA(
-            gameSettings.oColor,
-            0.2,
-          );
-          boardOpacity = '0.6';
-        } else if (boardWinners[boardIndex] === 'tie') {
-          boardElement.classList.add('tie');
-          boardOpacity = '0.6';
-        }
-        boardElement.querySelectorAll('.cell').forEach(cell => {
-          cell.style.opacity = boardOpacity;
-          if (boardOpacity !== '1') {
-            cell.style.cursor = 'default';
-          }
-        });
-        if (winningCombo) {
-          const existingLine = boardElement.querySelector('.winning-line');
-          if (existingLine) existingLine.remove();
-          setTimeout(() => drawWinningLine(boardIndex, winningCombo), 50);
-        }
-      }
-
-      // Draw winning line on a board
-      function drawWinningLine(boardIndex, combo) {
-        const boardElement = document.querySelector(
-          `.board[data-index="${boardIndex}"]`,
-        );
-        if (!boardElement || !combo) return;
-        const existingLine = boardElement.querySelector('.winning-line');
-        if (existingLine) return;
-        const boardWidth = boardElement.offsetWidth;
-        const boardHeight = boardElement.offsetHeight;
-        const gap = 5;
-        const padding = 5;
-        const cellWidth = (boardWidth - 2 * padding - 2 * gap) / 3;
-        const cellHeight = (boardHeight - 2 * padding - 2 * gap) / 3;
-        const lineThickness = 4;
-        const [a, c] = [combo[0], combo[2]];
-        const aCol = a % 3;
-        const aRow = Math.floor(a / 3);
-        const cCol = c % 3;
-        const cRow = Math.floor(c / 3);
-        const startXCenter = padding + aCol * (cellWidth + gap) + cellWidth / 2;
-        const startYCenter =
-          padding + aRow * (cellHeight + gap) + cellHeight / 2;
-        const endXCenter = padding + cCol * (cellWidth + gap) + cellWidth / 2;
-        const endYCenter = padding + cRow * (cellHeight + gap) + cellHeight / 2;
-        const deltaX = endXCenter - startXCenter;
-        const deltaY = endYCenter - startYCenter;
-        const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        const angleRad = Math.atan2(deltaY, deltaX);
-        const line = document.createElement('div');
-        line.className = 'winning-line';
-        line.style.width = `${length}px`;
-        line.style.height = `${lineThickness}px`;
-        line.style.left = `${startXCenter}px`;
-        line.style.top = `${startYCenter - lineThickness / 2}px`;
-        line.style.transform = `rotate(${angleRad}rad)`;
-        line.style.transformOrigin = `0 ${lineThickness / 2}px`;
-        line.style.backgroundColor =
-          boardWinners[boardIndex] === 'x'
-            ? gameSettings.xColor
-            : gameSettings.oColor;
-        boardElement.appendChild(line);
-      }
-
-      // Draw winning line on the super board
-      function drawSuperWinningLine(combo) {
-        const existingLine = superBoard.querySelector(
-          '.winning-line:not([data-board-index])',
-        );
-        if (existingLine) return;
-
-        const [a, c] = [combo[0], combo[2]];
-        const boardA = document.querySelector(`.board[data-index="${a}"]`);
-        const boardC = document.querySelector(`.board[data-index="${c}"]`);
-
-        if (!boardA || !boardC) {
-          console.error('Could not find boards for super winning line', combo);
-          return;
-        }
-
-        const boardARect = boardA.getBoundingClientRect();
-        const boardCRect = boardC.getBoundingClientRect();
-        const superBoardRect = superBoard.getBoundingClientRect();
-
-        const aCol = a % 3;
-        const aRow = Math.floor(a / 3);
-        const cCol = c % 3;
-        const cRow = Math.floor(c / 3);
-
-        let startX, startY, endX, endY;
-        const boardSize = superBoardRect.width / 3;
-        const lineThickness = 10; // Thicker line for super board
-
-        // For rows (horizontal lines)
-        if (aRow === cRow) {
-          startX = boardSize * 0.1 - 8.5;
-          startY = aRow * boardSize + boardSize / 2;
-          endX = superBoardRect.width - boardSize * 0.1 + 8.5;
-          endY = startY;
-        }
-        // For columns (vertical lines)
-        else if (aCol === cCol) {
-          startX = aCol * boardSize + boardSize / 2;
-          startY = boardSize * 0.1 - 8;
-          endX = startX;
-          endY = superBoardRect.height - boardSize * 0.1 + 7.5;
-        }
-        // For diagonals
-        else {
-          if (a === 0 && c === 8) {
-            // Top-left to bottom-right diagonal
-            startX = boardSize * 0.1 - 7;
-            startY = boardSize * 0.1 - 7;
-            endX = superBoardRect.width - boardSize * 0.1 + 7;
-            endY = superBoardRect.height - boardSize * 0.1 + 7;
-          } else {
-            // Top-right to bottom-left diagonal
-            startX = superBoardRect.width - boardSize * 0.1 + 7;
-            startY = boardSize * 0.1 - 7;
-            endX = boardSize * 0.1 - 7;
-            endY = superBoardRect.height - boardSize * 0.1 + 7;
-          }
-        }
-
-        const line = document.createElement('div');
-        line.className = 'winning-line';
-
-        // Calculate length and angle
-        const deltaX = endX - startX;
-        const deltaY = endY - startY;
-        const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        const angleRad = Math.atan2(deltaY, deltaX);
-
-        // Set line properties
-        line.style.width = `${length}px`;
-        line.style.height = `${lineThickness}px`;
-        line.style.left = `${startX}px`;
-        line.style.top = `${startY - lineThickness / 2}px`;
-        line.style.transform = `rotate(${angleRad}rad)`;
-        line.style.transformOrigin = '0 50%';
-        line.style.backgroundColor =
-          gameWinner === 'x' ? gameSettings.xColor : gameSettings.oColor;
-        line.style.zIndex = '10'; // Higher z-index to appear above board lines
-
-        superBoard.appendChild(line);
-      }
-
-      // Check if the game has a winner
       function checkGameWinner() {
+        /* ... (same logic) ... */
         if (gameWinner) return;
         const winningCombos = [
           [0, 1, 2],
@@ -1823,326 +2415,110 @@
           ) {
             gameWinner = boardWinners[a];
             winningCombination = combo;
-            endGame();
+            gameActive = false;
             return;
           }
         }
-        if (boardWinners.every(winner => winner !== '')) {
-          let foundWinner = false;
-          for (const combo of winningCombos) {
-            const [a, b, c] = combo;
-            if (
-              boardWinners[a] &&
-              boardWinners[a] !== 'tie' &&
-              boardWinners[a] === boardWinners[b] &&
-              boardWinners[a] === boardWinners[c]
-            ) {
-              foundWinner = true;
-              gameWinner = boardWinners[a];
-              winningCombination = combo;
-              break;
-            }
-          }
-          if (!foundWinner) {
-            gameWinner = 'tie';
-            winningCombination = null;
-            endGame();
-          } else {
-            endGame();
-          }
+        const allBoardsDecided = boardWinners.every(winner => winner !== '');
+        if (allBoardsDecided && !gameWinner) {
+          gameWinner = 'tie';
+          winningCombination = null;
+          gameActive = false;
         }
       }
 
-      // Draw winning line on a board - fixed positioning for better centering
-      function drawWinningLine(boardIndex, combo) {
-        const board = document.querySelector(
-          `.board[data-index="${boardIndex}"]`,
-        );
-        const boardRect = board.getBoundingClientRect();
-        const cellSize = boardRect.width / 3;
+      function endGame() {
+        /* ... (same logic, ensures UI update) ... */
+        if (!gameActive && !gameWinner) return; // Avoid double calls unless winner just found
+        gameActive = false;
+        if (pendingAIMove) clearTimeout(pendingAIMove);
+        pendingAIMove = null;
+        updateStatusDisplay(aiThinking, '');
+        updateOnlinePlayerUI(); // Show no active player
+        updateActiveBoards(); // Dim inactive boards
 
-        // Get positions of the winning cells
-        const [a, b, c] = combo;
-        const aCol = a % 3;
-        const aRow = Math.floor(a / 3);
-        const cCol = c % 3;
-        const cRow = Math.floor(c / 3);
+        displayEndGameMessage(); // Sets text based on gameWinner
 
-        // Calculate start and end points
-        let startX, startY, endX, endY;
-
-        // For rows - ensure horizontal lines are centered vertically in each row
-        if (aRow === cRow) {
-          // offset
-          let rowOffset = -5;
-          if (cRow == 0) rowOffset = -1.5;
-          else if (cRow == 2) rowOffset = -9;
-
-          startX = cellSize * 0.1; // Small offset from left edge
-
-          // Calculate the exact center of the row
-          startY = aRow * cellSize + cellSize / 2 + rowOffset;
-
-          endX = boardRect.width - cellSize * 0.1 - 6; // Small offset from right edge
-          endY = startY;
-        }
-        // For columns - ensure vertical lines are centered horizontally in each column
-        else if (aCol === cCol) {
-          // offset
-          let colOffset = -3;
-          if (cCol == 0) colOffset = 1;
-          else if (cCol == 2) colOffset = -6;
-          // Calculate the exact center of the column
-          startX = aCol * cellSize + cellSize / 2 + colOffset;
-
-          startY = cellSize * 0.1 - 1; // Small offset from top edge
-          endX = startX;
-          endY = boardRect.height - cellSize * 0.1 - 8.5; // Small offset from bottom edge
-        }
-        // For diagonals - keep the current implementation as requested
-        else {
-          if (a === 0 || c === 0) {
-            // Top-left to bottom-right diagonal
-            startX = cellSize * 0.1 + 2;
-            startY = cellSize * 0.1 - 0; // Shifted up at start
-            endX = boardRect.width - cellSize + 395 * 0.1 + 1;
-            endY = boardRect.height - cellSize + 395 * 0.1 - 1; // Shifted up more at end
-          } else {
-            // Top-right to bottom-left diagonal
-            startX = boardRect.width - cellSize * 0.1 - 8;
-            startY = cellSize * 0.1 + 0; // Shifted up at start
-            endX = cellSize * 0.1 + 2;
-            endY = boardRect.height - cellSize * 0.1 - 10; // Shifted up more at end
-          }
+        if (winningCombination && gameWinner !== 'tie') {
+          setTimeout(() => drawSuperWinningLine(winningCombination), 100);
         }
 
-        // Create the line element
-        const line = document.createElement('div');
-        line.className = 'winning-line';
-        line.style.width = `${Math.sqrt(
-          Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2),
-        )}px`;
-        line.style.height = '4px'; // line thickness
-        line.style.left = `${startX}px`;
-        line.style.top = `${startY}px`;
-        line.style.transform = `rotate(${Math.atan2(endY - startY, endX - startX)}rad)`;
-        line.style.transformOrigin = '0 50%'; // Center the line vertically
-        line.style.backgroundColor =
-          boardWinners[boardIndex] === 'x'
-            ? gameSettings.xColor
-            : gameSettings.oColor;
+        gameOver.classList.add('show'); // Show the modal
 
-        board.appendChild(line);
-      }
-
-      // Update which boards are active and highlight them
-      function updateActiveBoards() {
-        document.querySelectorAll('.board').forEach(board => {
-          board.classList.remove('active');
-          board.querySelectorAll('.cell:not(.occupied)').forEach(cell => {
-            cell.style.cursor = 'default';
-          });
-        });
-        if (!gameActive || gameWinner) {
-          return;
-        }
-        let activeBoardIndexes = [];
-        if (activeBoard === null) {
-          boardWinners.forEach((winner, index) => {
-            if (winner === '') {
-              activeBoardIndexes.push(index);
-            }
-          });
+        if (isOnlineGame) {
+          quitOnlineBtn.style.display = 'none';
+          newGameBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Rematch?'; // Update button text
+          settingsBtn.style.display = 'inline-flex';
+          // Note: Actual rematch logic not implemented, button currently goes to menu
         } else {
-          if (boardWinners[activeBoard] === '') {
-            activeBoardIndexes.push(activeBoard);
-          } else {
-            boardWinners.forEach((winner, index) => {
-              if (winner === '') {
-                activeBoardIndexes.push(index);
-              }
-            });
-          }
+          saveGameState(); // Save final local state
         }
-        activeBoardIndexes.forEach(index => {
-          const boardElement = document.querySelector(
-            `.board[data-index="${index}"]`,
-          );
-          if (boardElement) {
-            boardElement.classList.add('active');
-            boardElement
-              .querySelectorAll('.cell:not(.occupied)')
-              .forEach(cell => {
-                cell.style.cursor = 'pointer';
-              });
-          }
-        });
       }
 
-      // --- AI Logic ---
+      function displayEndGameMessage(customMessage = '') {
+        /* ... (same logic, handles custom messages better) ... */
+        let message = '';
+        let winnerClass = '';
 
-      // Find the best cell index within a specific board for 'O'
-      function findBestMove(boardIndex) {
-        const board = boards[boardIndex];
-        const availableCells = [];
-        for (let i = 0; i < 9; i++) {
-          if (board[i] === '') availableCells.push(i);
-        }
-        if (availableCells.length === 0) return -1;
-        for (const cellIndex of availableCells) {
-          // Check AI win
-          const tempBoard = [...board];
-          tempBoard[cellIndex] = 'o';
-          if (checkTempBoardWinner(tempBoard) === 'o') return cellIndex;
-        }
-        if (gameSettings.difficulty !== 'easy') {
-          // Check block human win
-          for (const cellIndex of availableCells) {
-            const tempBoard = [...board];
-            tempBoard[cellIndex] = 'x';
-            if (checkTempBoardWinner(tempBoard) === 'x') return cellIndex;
-          }
-        }
-        if (gameSettings.difficulty !== 'easy') {
-          // Prioritize center/corners/sides
-          const center = 4;
-          if (availableCells.includes(center)) return center;
-          const corners = [0, 2, 6, 8];
-          const availableCorners = corners.filter(c =>
-            availableCells.includes(c),
-          );
-          if (availableCorners.length > 0)
-            return availableCorners[
-              Math.floor(Math.random() * availableCorners.length)
-            ];
-          const sides = [1, 3, 5, 7];
-          const availableSides = sides.filter(s => availableCells.includes(s));
-          if (availableSides.length > 0)
-            return availableSides[
-              Math.floor(Math.random() * availableSides.length)
-            ];
-        }
-        return availableCells[
-          Math.floor(Math.random() * availableCells.length)
-        ]; // Random fallback
-      }
-
-      // AI 'O' makes a move
-      function aiMakeMove() {
-        if (!gameActive || gameWinner || currentPlayer !== 'o') return;
-        let boardIndex, cellIndex;
-        const isHard = gameSettings.difficulty === 'hard';
-        const canPlayAnywhere =
-          activeBoard === null || boardWinners[activeBoard] !== '';
-
-        if (isHard) {
-          const bestOverallMove = findBestOverallMove('o');
-          if (canPlayAnywhere) {
-            boardIndex = bestOverallMove.board;
-            cellIndex = bestOverallMove.cell;
+        if (customMessage) {
+          message = customMessage;
+          // Try to determine winner class based on the reason if possible
+          if (reasonIncludesWin(customMessage)) {
+            winnerClass = playerSymbolOnline;
+          } else if (reasonIncludesLoss(customMessage)) {
+            winnerClass = playerSymbolOnline === 'x' ? 'o' : 'x';
           } else {
-            boardIndex = activeBoard;
-            cellIndex = findBestMoveWithScoring(boardIndex, 'o');
+            winnerClass = 'tie'; // Default for neutral messages like quit/error
           }
         } else {
-          if (canPlayAnywhere) {
-            const availableBoards = [];
-            for (let i = 0; i < 9; i++) {
-              if (boardWinners[i] === '') availableBoards.push(i);
-            }
-            if (availableBoards.length === 0) return;
-            let moveFound = false;
-            for (const b of availableBoards) {
-              // Check O win
-              const bestCell = findBestMove(b);
-              const tempBoard = [...boards[b]];
-              tempBoard[bestCell] = 'o';
-              if (checkTempBoardWinner(tempBoard) === 'o') {
-                boardIndex = b;
-                cellIndex = bestCell;
-                moveFound = true;
-                break;
-              }
-            }
-            if (!moveFound && gameSettings.difficulty !== 'easy') {
-              // Check X block
-              for (const b of availableBoards) {
-                const tempBoard = [...boards[b]]; // Need to check all cells for potential block
-                for (let c = 0; c < 9; c++) {
-                  if (tempBoard[c] === '') {
-                    const blockTestBoard = [...tempBoard];
-                    blockTestBoard[c] = 'x';
-                    if (checkTempBoardWinner(blockTestBoard) === 'x') {
-                      boardIndex = b;
-                      cellIndex = c; // Found the cell to block
-                      moveFound = true;
-                      break;
-                    }
-                  }
-                }
-                if (moveFound) break;
-              }
-            }
-            if (!moveFound) {
-              // Random/Medium fallback
-              boardIndex =
-                availableBoards[
-                  Math.floor(Math.random() * availableBoards.length)
-                ];
-              cellIndex = findBestMove(boardIndex);
-            }
+          // Standard win/loss/tie messages
+          if (gameWinner === 'x') {
+            if (isOnlineGame)
+              message =
+                playerSymbolOnline === 'x' ? 'You Win!' : 'Opponent Wins!';
+            else
+              message =
+                gameSettings.gameMode === 'ai' ? 'You Win!' : 'Player X Wins!';
+            winnerClass = 'x';
+          } else if (gameWinner === 'o') {
+            if (isOnlineGame)
+              message =
+                playerSymbolOnline === 'o' ? 'You Win!' : 'Opponent Wins!';
+            else
+              message =
+                gameSettings.gameMode === 'ai' ? 'AI Wins!' : 'Player O Wins!';
+            winnerClass = 'o';
           } else {
-            boardIndex = activeBoard;
-            cellIndex = findBestMove(boardIndex);
+            message = "It's a Tie!";
+            winnerClass = 'tie';
           }
         }
 
+        gameOverMessage.textContent = message;
+        gameOverMessage.className = `game-over-message ${winnerClass}`;
+
+        playAgainBtn.style.display = isOnlineGame ? 'none' : 'inline-flex'; // Hide for online
+        goToMenuBtn.style.display = 'inline-flex'; // Always show menu button
+        viewBoardBtn.style.display = 'inline-flex'; // Always show view board
+      }
+      // Helpers for displayEndGameMessage
+      function reasonIncludesWin(reason) {
+        return reason.toLowerCase().includes('you win');
+      }
+      function reasonIncludesLoss(reason) {
+        return reason.toLowerCase().includes('you lose');
+      }
+
+      // --- Drawing Functions --- (Mostly unchanged)
+      function findWinningCombo(boardIndex) {
+        /* ... (same) ... */
         if (
-          typeof boardIndex !== 'undefined' &&
-          typeof cellIndex !== 'undefined' &&
-          cellIndex !== -1 &&
-          boards[boardIndex][cellIndex] === ''
-        ) {
-          makeMove(boardIndex, cellIndex, 'o');
-        } else {
-          console.error("AI 'O' failed to find a valid move.", {
-            boardIndex,
-            cellIndex,
-            activeBoard,
-            canPlayAnywhere,
-          });
-          const allAvailable = [];
-          for (let b = 0; b < 9; b++) {
-            if (boardWinners[b] === '') {
-              for (let c = 0; c < 9; c++) {
-                if (boards[b][c] === '') allAvailable.push({ b, c });
-              }
-            }
-          }
-          if (allAvailable.length > 0) {
-            const randomFallback =
-              allAvailable[Math.floor(Math.random() * allAvailable.length)];
-            makeMove(randomFallback.b, randomFallback.c, 'o');
-            console.log("AI 'O' made a random fallback move.");
-          } else {
-            console.error("AI 'O' fallback failed: No available cells found.");
-          }
-        }
-        aiThinking.classList.remove('show');
-      }
-
-      // --- Hard AI Helper Functions ---
-
-      // Evaluate if placing 'player' in board 'b', cell 'c' would win the super board
-      function doesMoveWinSuperBoard(b, c, player) {
-        const tempBoardWinners = [...boardWinners];
-        tempBoardWinners[b] = player;
-        return checkSuperBoardWin(tempBoardWinners) !== null;
-      }
-
-      // Check if a potential super board state wins
-      function checkSuperBoardWin(boardState) {
-        const winningCombos = [
+          boardWinners[boardIndex] !== 'x' &&
+          boardWinners[boardIndex] !== 'o'
+        )
+          return null;
+        const board = boards[boardIndex];
+        const combos = [
           [0, 1, 2],
           [3, 4, 5],
           [6, 7, 8],
@@ -2152,178 +2528,397 @@
           [0, 4, 8],
           [2, 4, 6],
         ];
-        for (const combo of winningCombos) {
-          const [a, b, c] = combo;
+        for (const c of combos)
+          if (
+            board[c[0]] === boardWinners[boardIndex] &&
+            board[c[1]] === boardWinners[boardIndex] &&
+            board[c[2]] === boardWinners[boardIndex]
+          )
+            return c;
+        return null;
+      }
+      function updateBoardUI(boardIndex, winningCombo = null) {
+        /* ... (same) ... */
+        const boardElement = document.querySelector(
+          `.board[data-index="${boardIndex}"]`,
+        );
+        if (!boardElement) return;
+        let boardOpacity = '1';
+        boardElement.classList.remove(
+          'won-x',
+          'won-o',
+          'tie',
+          'active',
+          'inactive-board',
+        );
+        boardElement.style.backgroundColor = '';
+        boardElement.style.borderColor = '';
+        boardElement.style.boxShadow = '';
+        boardElement.style.animation = '';
+        const winner = boardWinners[boardIndex];
+        if (winner) {
+          boardOpacity = '0.6';
+          if (winner === 'x') {
+            boardElement.classList.add('won-x');
+            boardElement.style.borderColor = gameSettings.xColor;
+            boardElement.style.backgroundColor = hexToRGBA(
+              gameSettings.xColor,
+              0.2,
+            );
+          } else if (winner === 'o') {
+            boardElement.classList.add('won-o');
+            boardElement.style.borderColor = gameSettings.oColor;
+            boardElement.style.backgroundColor = hexToRGBA(
+              gameSettings.oColor,
+              0.2,
+            );
+          } else {
+            boardElement.classList.add('tie');
+          }
+          boardElement.querySelectorAll('.cell').forEach(cell => {
+            cell.style.opacity = boardOpacity;
+            cell.style.cursor = 'default';
+          });
+          const existingLine = boardElement.querySelector('.winning-line');
+          if (existingLine) existingLine.remove();
+          if (winningCombo && (winner === 'x' || winner === 'o')) {
+            setTimeout(() => drawWinningLine(boardIndex, winningCombo), 50);
+          }
+        }
+      }
+      function drawWinningLine(boardIndex, combo) {
+        /* ... (same improved version) ... */
+        const boardElement = document.querySelector(
+          `.board[data-index="${boardIndex}"]`,
+        );
+        if (!boardElement || !combo) return;
+        const existingLine = boardElement.querySelector('.winning-line');
+        if (existingLine) return;
+        const bw = boardElement.offsetWidth,
+          bh = boardElement.offsetHeight,
+          g = 5,
+          p = 5;
+        const cw = (bw - 2 * p - 2 * g) / 3,
+          ch = (bh - 2 * p - 2 * g) / 3;
+        const lt = Math.max(2, Math.min(4, Math.round(cw * 0.08)));
+        const [a, c] = [combo[0], combo[2]];
+        const ac = a % 3,
+          ar = Math.floor(a / 3),
+          cc = c % 3,
+          cr = Math.floor(c / 3);
+        const sxC = p + ac * (cw + g) + cw / 2,
+          syC = p + ar * (ch + g) + ch / 2,
+          exC = p + cc * (cw + g) + cw / 2,
+          eyC = p + cr * (ch + g) + ch / 2;
+        const ang = Math.atan2(eyC - syC, exC - sxC),
+          off = cw * 0.35;
+        const sx = sxC - Math.cos(ang) * off,
+          sy = syC - Math.sin(ang) * off,
+          ex = exC + Math.cos(ang) * off,
+          ey = eyC + Math.sin(ang) * off;
+        const dx = ex - sx,
+          dy = ey - sy,
+          len = Math.sqrt(dx * dx + dy * dy);
+        const line = document.createElement('div');
+        line.className = 'winning-line';
+        line.style.width = `${len}px`;
+        line.style.height = `${lt}px`;
+        line.style.left = `${sx}px`;
+        line.style.top = `${sy - lt / 2}px`;
+        line.style.transform = `rotate(${ang}rad)`;
+        line.style.transformOrigin = `0 ${lt / 2}px`;
+        line.style.backgroundColor =
+          boardWinners[boardIndex] === 'x'
+            ? gameSettings.xColor
+            : gameSettings.oColor;
+        line.style.borderRadius = `${lt / 2}px`;
+        boardElement.appendChild(line);
+      }
+      function drawSuperWinningLine(combo) {
+        /* ... (same improved version) ... */
+        const existingLine = superBoard.querySelector(
+          '.winning-line:not([data-board-index])',
+        );
+        if (existingLine) return;
+        const [a, c] = [combo[0], combo[2]];
+        const bA = document.querySelector(`.board[data-index="${a}"]`),
+          bC = document.querySelector(`.board[data-index="${c}"]`);
+        if (!bA || !bC) return;
+        const sbr = superBoard.getBoundingClientRect(),
+          ar = bA.getBoundingClientRect(),
+          cr = bC.getBoundingClientRect();
+        const sxC = (ar.left + ar.right) / 2 - sbr.left,
+          syC = (ar.top + ar.bottom) / 2 - sbr.top,
+          exC = (cr.left + cr.right) / 2 - sbr.left,
+          eyC = (cr.top + cr.bottom) / 2 - sbr.top;
+        const ang = Math.atan2(eyC - syC, exC - sxC),
+          bs = sbr.width / 3,
+          off = bs * 0.4;
+        const sx = sxC - Math.cos(ang) * off,
+          sy = syC - Math.sin(ang) * off,
+          ex = exC + Math.cos(ang) * off,
+          ey = eyC + Math.sin(ang) * off;
+        const dx = ex - sx,
+          dy = ey - sy,
+          len = Math.sqrt(dx * dx + dy * dy);
+        const lt = Math.max(6, Math.min(10, Math.round(bs * 0.08)));
+        const line = document.createElement('div');
+        line.className = 'winning-line';
+        line.style.width = `${len}px`;
+        line.style.height = `${lt}px`;
+        line.style.left = `${sx}px`;
+        line.style.top = `${sy - lt / 2}px`;
+        line.style.transform = `rotate(${ang}rad)`;
+        line.style.transformOrigin = `0 ${lt / 2}px`;
+        line.style.backgroundColor =
+          gameWinner === 'x' ? gameSettings.xColor : gameSettings.oColor;
+        line.style.zIndex = '10';
+        line.style.borderRadius = `${lt / 2}px`;
+        superBoard.appendChild(line);
+      }
+      function findAndHighlightLastMove() {
+        /* ... (same) ... */
+        document
+          .querySelectorAll('.cell.last-move')
+          .forEach(c => c.classList.remove('last-move'));
+        if (
+          lastMove &&
+          lastMove.boardIndex !== -1 &&
+          lastMove.cellIndex !== -1
+        ) {
+          const lc = document.querySelector(
+            `.cell[data-board="${lastMove.boardIndex}"][data-cell="${lastMove.cellIndex}"]`,
+          );
+          if (lc) lc.classList.add('last-move');
+        }
+      }
+
+      // --- AI Logic --- (Unchanged from previous version)
+      function findBestMove(boardIndex) {
+        /* ... (same) ... */
+        const b = boards[boardIndex];
+        const av = [];
+        for (let i = 0; i < 9; i++) if (b[i] === '') av.push(i);
+        if (av.length === 0) return -1;
+        for (const ci of av) {
+          const t = [...b];
+          t[ci] = 'o';
+          if (checkTempBoardWinner(t) === 'o') return ci;
+        }
+        if (gameSettings.difficulty !== 'easy') {
+          for (const ci of av) {
+            const t = [...b];
+            t[ci] = 'x';
+            if (checkTempBoardWinner(t) === 'x') return ci;
+          }
+        }
+        if (gameSettings.difficulty !== 'easy') {
+          const c = 4;
+          if (av.includes(c)) return c;
+          const cn = [0, 2, 6, 8].filter(c => av.includes(c));
+          if (cn.length > 0) return cn[Math.floor(Math.random() * cn.length)];
+          const s = [1, 3, 5, 7].filter(s => av.includes(s));
+          if (s.length > 0) return s[Math.floor(Math.random() * s.length)];
+        }
+        return av[Math.floor(Math.random() * av.length)];
+      }
+      function checkTempBoardWinner(boardState) {
+        /* ... (same) ... */
+        const wc = [
+          [0, 1, 2],
+          [3, 4, 5],
+          [6, 7, 8],
+          [0, 3, 6],
+          [1, 4, 7],
+          [2, 5, 8],
+          [0, 4, 8],
+          [2, 4, 6],
+        ];
+        for (const c of wc) {
+          const [a, b, d] = c;
           if (
             boardState[a] &&
-            boardState[a] !== 'tie' &&
             boardState[a] === boardState[b] &&
-            boardState[a] === boardState[c]
-          ) {
-            return combo; // Return the winning combo
-          }
+            boardState[a] === boardState[d]
+          )
+            return boardState[a];
         }
-        return null; // No winner
+        return boardState.includes('') ? '' : 'tie';
       }
-
-      // Score a potential move (boardIndex, cellIndex) for 'player'
-      function scoreMove(boardIndex, cellIndex, player) {
-        const opponent = player === 'x' ? 'o' : 'x';
-        let score = 0;
-        const tempBoard = [...boards[boardIndex]];
-        tempBoard[cellIndex] = player;
-        const boardResult = checkTempBoardWinner(tempBoard);
-
-        if (boardResult === player) {
-          // 1. Check board win
-          score += 1000;
-          if (doesMoveWinSuperBoard(boardIndex, cellIndex, player)) {
-            score += 10000;
-          } // Check game win
-        }
-        const tempOpponentBoard = [...boards[boardIndex]];
-        tempOpponentBoard[cellIndex] = opponent;
-        if (checkTempBoardWinner(tempOpponentBoard) === opponent) {
-          // 2. Check block opponent board win
-          score += 800;
-          const tempOpponentWinsBoard = [...boardWinners];
-          tempOpponentWinsBoard[boardIndex] = opponent;
-          if (checkSuperBoardWin(tempOpponentWinsBoard)) {
-            score += 5000;
-          } // Check block opponent game win
-        }
-
-        const targetBoardIndex = cellIndex; // 3. Impact on next board
-        if (boardWinners[targetBoardIndex] === '') {
-          let opponentCanWinTarget = false;
-          let weCanWinTarget = false;
-          for (let i = 0; i < 9; i++) {
-            if (boards[targetBoardIndex][i] === '') {
-              const targetTestOpponent = [...boards[targetBoardIndex]];
-              targetTestOpponent[i] = opponent;
-              if (checkTempBoardWinner(targetTestOpponent) === opponent) {
-                opponentCanWinTarget = true;
-              }
-              const targetTestPlayer = [...boards[targetBoardIndex]];
-              targetTestPlayer[i] = player;
-              if (checkTempBoardWinner(targetTestPlayer) === player) {
-                weCanWinTarget = true;
-              }
-            }
-          }
-          if (opponentCanWinTarget) score -= 900;
-          if (weCanWinTarget) score += 700;
-          let playerPieces = 0;
-          let opponentPieces = 0;
-          boards[targetBoardIndex].forEach(cell => {
-            if (cell === player) playerPieces++;
-            else if (cell === opponent) opponentPieces++;
+      function aiMakeMove() {
+        /* ... (same) ... */
+        if (!gameActive || gameWinner || currentPlayer !== 'o' || isOnlineGame)
+          return;
+        updateStatusDisplay(aiThinking, '', false);
+        let bi, ci;
+        const hard = gameSettings.difficulty === 'hard';
+        const any = activeBoard === null || boardWinners[activeBoard] !== '';
+        let targets = [];
+        if (any)
+          boardWinners.forEach((w, i) => {
+            if (w === '') targets.push(i);
           });
-          if (opponentPieces > playerPieces) score -= 50;
-          else if (playerPieces > opponentPieces) score += 50;
-        } else {
-          // Sending to completed board
-          if (
-            !(
-              boardResult === player &&
-              doesMoveWinSuperBoard(boardIndex, cellIndex, player)
-            ) &&
-            !(
-              checkTempBoardWinner(tempOpponentBoard) === opponent &&
-              checkSuperBoardWin([...boardWinners, { [boardIndex]: opponent }])
-            )
-          ) {
-            score -= 200;
-          }
-        }
-
-        if (cellIndex === 4) score += 20;
-        else if ([0, 2, 6, 8].includes(cellIndex)) score += 10; // 4. Cell value
-        score += Math.random() * 5; // 5. Randomness
-        return score;
-      }
-
-      // Find the best move (board, cell) across *all* available boards using scoring
-      function findBestOverallMove(player) {
-        let bestScore = -Infinity;
-        let bestMoves = [];
-        const availableBoards = [];
-        boardWinners.forEach((w, i) => {
-          if (w === '') availableBoards.push(i);
-        });
-        if (availableBoards.length === 0) {
-          console.error(
-            `findBestOverallMove called for ${player} but no available boards!`,
-          );
-          return { board: -1, cell: -1 };
-        }
-        for (const b of availableBoards) {
-          for (let c = 0; c < 9; c++) {
-            if (boards[b][c] === '') {
-              const currentScore = scoreMove(b, c, player);
-              if (currentScore > bestScore) {
-                bestScore = currentScore;
-                bestMoves = [{ board: b, cell: c }];
-              } else if (currentScore === bestScore) {
-                bestMoves.push({ board: b, cell: c });
+        else targets.push(activeBoard);
+        if (targets.length === 0) return;
+        if (hard) {
+          let bestS = -Infinity;
+          let bestM = [];
+          for (const b of targets) {
+            for (let c = 0; c < 9; c++) {
+              if (boards[b][c] === '') {
+                const s = scoreMove(b, c, 'o');
+                if (s > bestS) {
+                  bestS = s;
+                  bestM = [{ b, c }];
+                } else if (s === bestS) {
+                  bestM.push({ b, c });
+                }
               }
             }
           }
-        }
-        if (bestMoves.length === 0) {
-          console.error(
-            `findBestOverallMove for ${player} failed to find any scored move.`,
-          );
-          for (const b of availableBoards) {
-            for (let c = 0; c < 9; c++) {
-              if (boards[b][c] === '') return { board: b, cell: c };
+          if (bestM.length > 0) {
+            const ch = bestM[Math.floor(Math.random() * bestM.length)];
+            bi = ch.b;
+            ci = ch.c;
+          } else {
+            bi = targets[Math.floor(Math.random() * targets.length)];
+            ci = findBestMove(bi);
+          }
+        } else {
+          let found = false;
+          for (const b of targets) {
+            const wc = findWinningCell(b, 'o');
+            if (wc !== -1) {
+              bi = b;
+              ci = wc;
+              found = true;
+              break;
             }
           }
-          return { board: -1, cell: -1 };
+          if (!found && gameSettings.difficulty !== 'easy') {
+            for (const b of targets) {
+              const bc = findWinningCell(b, 'x');
+              if (bc !== -1) {
+                bi = b;
+                ci = bc;
+                found = true;
+                break;
+              }
+            }
+          }
+          if (!found) {
+            if (targets.length === 1) {
+              bi = targets[0];
+              ci = findBestMove(bi);
+            } else {
+              bi = targets[Math.floor(Math.random() * targets.length)];
+              ci = findBestMove(bi);
+            }
+          }
         }
-        return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        if (
+          typeof bi !== 'undefined' &&
+          typeof ci !== 'undefined' &&
+          ci !== -1 &&
+          boards[bi]?.[ci] === ''
+        ) {
+          makeMove(bi, ci, 'o');
+        } else {
+          console.error('AI Fail', { bi, ci, activeBoard, targets });
+          let fb = false;
+          for (let b = 0; b < 9; b++) {
+            if (boardWinners[b] === '') {
+              for (let c = 0; c < 9; c++) {
+                if (boards[b][c] === '') {
+                  makeMove(b, c, 'o');
+                  fb = true;
+                  break;
+                }
+              }
+            }
+            if (fb) break;
+          }
+          if (!fb) console.error('AI FALLBACK FAIL');
+        }
       }
-
-      // Find the best move within a *specific* forced board using scoring
-      function findBestMoveWithScoring(boardIndex, player) {
-        let bestScore = -Infinity;
-        let bestMoves = [];
-        const availableCells = [];
-        for (let c = 0; c < 9; c++) {
-          if (boards[boardIndex][c] === '') {
-            availableCells.push(c);
-            const currentScore = scoreMove(boardIndex, c, player);
-            if (currentScore > bestScore) {
-              bestScore = currentScore;
-              bestMoves = [c];
-            } else if (currentScore === bestScore) {
-              bestMoves.push(c);
-            }
+      function findWinningCell(boardIndex, player) {
+        /* ... (same) ... */
+        const b = boards[boardIndex];
+        for (let i = 0; i < 9; i++) {
+          if (b[i] === '') {
+            const t = [...b];
+            t[i] = player;
+            if (checkTempBoardWinner(t) === player) return i;
           }
         }
-        if (bestMoves.length === 0) {
-          console.error(
-            `findBestMoveWithScoring for board ${boardIndex}, player ${player} found no moves.`,
-          );
-          if (availableCells.length > 0) {
-            return availableCells[
-              Math.floor(Math.random() * availableCells.length)
-            ];
-          }
-          return -1;
+        return -1;
+      }
+      function doesMoveWinSuperBoard(b, c, p) {
+        /* ... (same) ... */ const tw = [...boardWinners];
+        tw[b] = p;
+        return checkSuperBoardWin(tw) !== null;
+      }
+      function checkSuperBoardWin(bw) {
+        /* ... (same) ... */ const wc = [
+          [0, 1, 2],
+          [3, 4, 5],
+          [6, 7, 8],
+          [0, 3, 6],
+          [1, 4, 7],
+          [2, 5, 8],
+          [0, 4, 8],
+          [2, 4, 6],
+        ];
+        for (const c of wc) {
+          const [a, b, d] = c;
+          if (bw[a] && bw[a] !== 'tie' && bw[a] === bw[b] && bw[a] === bw[d])
+            return c;
         }
-        return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        return null;
+      }
+      function scoreMove(bi, ci, p) {
+        /* ... (same strategy, maybe simplified) ... */
+        const o = p === 'x' ? 'o' : 'x';
+        let s = 0;
+        const tb = [...boards[bi]];
+        tb[ci] = p;
+        const r = checkTempBoardWinner(tb);
+        const tob = [...boards[bi]];
+        tob[ci] = o;
+        const obr = checkTempBoardWinner(tob);
+        if (r === p) {
+          s += 1000;
+          if (doesMoveWinSuperBoard(bi, ci, p)) s += 10000;
+        }
+        if (obr === o) {
+          s += 800;
+          const tow = [...boardWinners];
+          tow[bi] = o;
+          if (checkSuperBoardWin(tow)) s += 9000;
+        }
+        if (ci === 4) s += 30;
+        else if ([0, 2, 6, 8].includes(ci)) s += 15;
+        else s += 5;
+        const tbi = ci;
+        if (gameSettings.rules === 'standard' && boardWinners[tbi] === '') {
+          if (findWinningCell(tbi, o) !== -1) s -= 500;
+          if (findWinningCell(tbi, p) !== -1) s += 100;
+        } else if (
+          gameSettings.rules === 'standard' &&
+          boardWinners[tbi] !== ''
+        )
+          s += 10;
+        s += Math.random();
+        return s;
       }
 
       // --- Settings Modal Logic ---
       function showSettings() {
-        // Remove 'aivsai' option if it exists dynamically (or ensure it's hidden by default CSS/HTML)
-        const aiVsAiOption = document
-          .getElementById('aiVsAi')
-          ?.closest('.setting-option');
-        if (aiVsAiOption) aiVsAiOption.style.display = 'none';
+        /* ... (same as before) ... */
+        if (isOnlineGame) return;
+        // Remove AIvsAI option if dynamically added previously (should be removed from HTML ideally)
+        document.getElementById('aiVsAi')?.closest('.setting-option')?.remove();
 
-        // Populate the modal with current settings (ensure gameMode defaults if loaded pref was invalid)
         if (!['human', 'ai'].includes(gameSettings.gameMode))
           gameSettings.gameMode = 'ai';
         document.querySelector(
@@ -2341,16 +2936,12 @@
         oColorPicker.style.backgroundColor = gameSettings.oColor;
         aiDifficultyGroup.style.display =
           gameSettings.gameMode === 'human' ? 'none' : 'block';
-
-        // Initialize temp colors with current values
         tempXColor = gameSettings.xColor;
         tempOColor = gameSettings.oColor;
-
-        settingsModal.classList.add('show');
+        showModal(settingsModal);
       }
-
       function hideSettings() {
-        // Reset color pickers to current game settings
+        /* ... (same as before) ... */
         if (xColorPicker) {
           xColorPicker.value = gameSettings.xColor;
           xColorPicker.style.backgroundColor = gameSettings.xColor;
@@ -2359,197 +2950,376 @@
           oColorPicker.value = gameSettings.oColor;
           oColorPicker.style.backgroundColor = gameSettings.oColor;
         }
-        settingsModal.classList.remove('show');
+        hideModal(settingsModal);
       }
-
       function saveGameSettings() {
-        // Read settings from the modal form
-        let selectedGameMode = document.querySelector(
+        /* ... (same as before) ... */
+        let selMode = document.querySelector(
           'input[name="gameMode"]:checked',
         )?.value;
-        // Fallback if somehow the removed AIvAI option is still checked
-        if (!['human', 'ai'].includes(selectedGameMode))
-          selectedGameMode = 'ai';
-
-        const selectedRules = document.querySelector(
+        if (!['human', 'ai'].includes(selMode)) selMode = 'ai';
+        const selRules = document.querySelector(
           'input[name="rules"]:checked',
         ).value;
-        const selectedDifficulty = document.querySelector(
+        const selDiff = document.querySelector(
           'input[name="difficulty"]:checked',
         ).value;
-
-        // Use the temp colors that were being previewed
-        const selectedXColor = tempXColor;
-        const selectedOColor = tempOColor;
-
-        // Save previous settings to detect changes
-        const prevGameMode = gameSettings.gameMode;
-        const prevRules = gameSettings.rules;
-
-        // Update the gameSettings object
-        gameSettings.gameMode = selectedGameMode;
-        gameSettings.rules = selectedRules;
-        gameSettings.difficulty = selectedDifficulty;
-        gameSettings.xColor = selectedXColor;
-        gameSettings.oColor = selectedOColor;
-
-        // Apply color/icon changes immediately
+        const selX = tempXColor,
+          selO = tempOColor;
+        const prevMode = gameSettings.gameMode,
+          prevRules = gameSettings.rules;
+        gameSettings = {
+          gameMode: selMode,
+          rules: selRules,
+          difficulty: selDiff,
+          xColor: selX,
+          oColor: selO,
+        };
         updateColors();
-
-        // Hide the settings modal
         hideSettings();
-
-        // Save settings to localStorage
         localStorage.setItem(
           'ticTacSquaredPreferences',
           JSON.stringify(gameSettings),
         );
-
-        // If there's an active game, apply changes dynamically
-        if (gameActive && !gameWinner) {
-          // If rules changed, update which boards are active
-          if (prevRules !== selectedRules) {
-            if (selectedRules === 'free') {
-              // Free play - any non-won board is valid
-              activeBoard = null;
-            } else if (lastMove.cellIndex !== -1) {
-              // Standard - use the cell index from last move to determine next active board
+        if (gameActive && !isOnlineGame && !gameWinner) {
+          if (prevRules !== selRules) {
+            if (selRules === 'free') activeBoard = null;
+            else if (lastMove.cellIndex !== -1)
               activeBoard =
                 boardWinners[lastMove.cellIndex] === ''
                   ? lastMove.cellIndex
                   : null;
-            }
             updateActiveBoards();
           }
-
-          // If game mode changed, handle the transition smoothly
-          if (prevGameMode !== selectedGameMode) {
-            // Handle transition from human mode to AI mode
+          if (prevMode !== selMode) {
+            updateOnlinePlayerUI();
             if (
-              prevGameMode === 'human' &&
-              selectedGameMode === 'ai' &&
+              prevMode === 'human' &&
+              selMode === 'ai' &&
               currentPlayer === 'o'
             ) {
-              // If it's O's turn now and we switched to AI mode, trigger AI move
-              aiThinking.classList.add('show');
-              if (pendingAIMove !== null) {
-                clearTimeout(pendingAIMove);
-              }
+              updateStatusDisplay(aiThinking, 'AI thinking...', true);
+              if (pendingAIMove) clearTimeout(pendingAIMove);
               pendingAIMove = setTimeout(() => {
                 pendingAIMove = null;
                 if (!gameActive || gameWinner) {
-                  aiThinking.classList.remove('show');
+                  updateStatusDisplay(aiThinking, '');
                   return;
                 }
                 aiMakeMove();
               }, 800);
-            }
-            // Handle transition from AI mode to human mode
-            else if (prevGameMode === 'ai' && selectedGameMode === 'human') {
-              // Cancel any pending AI moves
-              if (pendingAIMove !== null) {
-                clearTimeout(pendingAIMove);
-                pendingAIMove = null;
-              }
-              aiThinking.classList.remove('show');
+            } else if (prevMode === 'ai' && selMode === 'human') {
+              if (pendingAIMove) clearTimeout(pendingAIMove);
+              pendingAIMove = null;
+              updateStatusDisplay(aiThinking, '');
             }
           }
-
-          // Save the current game state with updated settings
-          saveGameState();
+        } else if (!gameActive && !isOnlineGame) {
         }
+        saveGameState(); // Save potentially updated state if game was active
       }
-
-      xColorPicker.addEventListener('input', event => {
-        const newColor = event.target.value;
-        tempXColor = newColor;
-        xColorPicker.style.backgroundColor = newColor;
-        // Don't update the game elements yet
+      let tempXColor;
+      let tempOColor; // Temp storage for color picker preview
+      xColorPicker.addEventListener('input', e => {
+        tempXColor = e.target.value;
+        xColorPicker.style.backgroundColor = tempXColor;
       });
-
-      oColorPicker.addEventListener('input', event => {
-        const newColor = event.target.value;
-        tempOColor = newColor;
-        oColorPicker.style.backgroundColor = newColor;
-        // Don't update the game elements yet
+      oColorPicker.addEventListener('input', e => {
+        tempOColor = e.target.value;
+        oColorPicker.style.backgroundColor = tempOColor;
       });
 
       // --- How To Play Modal ---
       function showHowToPlay() {
-        howToPlayModal.classList.add('show');
+        showModal(howToPlayModal);
       }
       function hideHowToPlay() {
-        howToPlayModal.classList.remove('show');
+        hideModal(howToPlayModal);
       }
 
-      // --- Modal Outside Click Listener Setup ---
-      function setupModalOutsideClickListeners() {
-        const modals = [settingsModal, howToPlayModal, coinFlipModal];
-        modals.forEach(modal => {
-          if (modal) {
-            modal.addEventListener('click', event => {
-              if (event.target === modal) {
-                const closeButton = modal.querySelector(
-                  '#cancelSettings, #closeHowToPlayBtn',
-                );
-                if (modal === coinFlipModal) {
-                } // Don't close coin flip
-                else if (closeButton) {
-                  closeButton.click();
-                } else {
-                  modal.classList.remove('show');
-                }
+      // --- Local Storage --- (Only for local games and preferences)
+      function saveGameState() {
+        /* ... (same as before) ... */
+        if (isOnlineGame) return;
+        const state = {
+          currentPlayer,
+          activeBoard,
+          boards,
+          boardWinners,
+          gameWinner,
+          gameActive,
+          winningCombination,
+          lastMove,
+          savedGameSettings: {
+            gameMode: gameSettings.gameMode,
+            rules: gameSettings.rules,
+            difficulty: gameSettings.difficulty,
+          },
+        };
+        localStorage.setItem('ticTacSquaredState', JSON.stringify(state));
+        console.log('Local game saved.');
+      }
+      function loadGameState() {
+        /* ... (same as before) ... */
+        if (isOnlineGame) return false;
+        try {
+          const saved = localStorage.getItem('ticTacSquaredState');
+          if (!saved) return false;
+          const gs = JSON.parse(saved);
+          currentPlayer = gs.currentPlayer;
+          activeBoard = gs.activeBoard;
+          boards = gs.boards;
+          boardWinners = gs.boardWinners;
+          gameWinner = gs.gameWinner;
+          gameActive = gs.gameActive;
+          winningCombination = gs.winningCombination;
+          lastMove = gs.lastMove || {
+            boardIndex: -1,
+            cellIndex: -1,
+            player: '',
+          };
+          if (gs.savedGameSettings) {
+            gameSettings.gameMode = gs.savedGameSettings.gameMode;
+            gameSettings.rules = gs.savedGameSettings.rules;
+            gameSettings.difficulty = gs.savedGameSettings.difficulty;
+          } else {
+            loadPreferences();
+          }
+          loadPreferences();
+          updateColors(); // Load current color prefs regardless
+          gameModeType = 'local';
+          isOnlineGame = false;
+          hideModal(startMenuModal);
+          hideModal(onlineMenuModal);
+          hideModal(coinFlipModal);
+          recreateGameUI();
+          if (
+            gameActive &&
+            !gameWinner &&
+            gameSettings.gameMode === 'ai' &&
+            currentPlayer === 'o'
+          ) {
+            updateStatusDisplay(aiThinking, 'AI thinking...', true);
+            if (pendingAIMove) clearTimeout(pendingAIMove);
+            pendingAIMove = setTimeout(() => {
+              pendingAIMove = null;
+              if (!gameActive || gameWinner) {
+                updateStatusDisplay(aiThinking, '');
+                return;
               }
-            });
+              aiMakeMove();
+            }, 800);
+          }
+          console.log('Loaded local game.');
+          return true;
+        } catch (e) {
+          console.error('Load game error:', e);
+          localStorage.removeItem('ticTacSquaredState');
+          return false;
+        }
+      }
+      function clearSavedGameState() {
+        /* ... (same) ... */ localStorage.removeItem('ticTacSquaredState');
+        console.log('Cleared local save.');
+      }
+      function loadPreferences() {
+        /* ... (same as before, ensures defaults) ... */
+        const sp = localStorage.getItem('ticTacSquaredPreferences');
+        let prefs = {};
+        if (sp) {
+          try {
+            prefs = JSON.parse(sp);
+          } catch (e) {
+            console.error('Pref load error', e);
+            localStorage.removeItem('ticTacSquaredPreferences');
+          }
+        }
+        gameSettings.gameMode = ['human', 'ai'].includes(prefs.gameMode)
+          ? prefs.gameMode
+          : 'ai';
+        gameSettings.rules = ['standard', 'free'].includes(prefs.rules)
+          ? prefs.rules
+          : 'standard';
+        gameSettings.difficulty = ['easy', 'medium', 'hard'].includes(
+          prefs.difficulty,
+        )
+          ? prefs.difficulty
+          : 'medium';
+        gameSettings.xColor = prefs.xColor || DEFAULT_X_COLOR;
+        gameSettings.oColor = prefs.oColor || DEFAULT_O_COLOR;
+        updateColors();
+      }
+
+      // --- Coin Flip --- (Only for local games)
+      function flipCoin() {
+        /* ... (same as before) ... */
+        if (isOnlineGame) return;
+        coin.classList.remove('flipping');
+        coin.style.transform = '';
+        coinResult.textContent = '';
+        void coin.offsetWidth;
+        const r = Math.random(),
+          w = r < 0.5 ? 'x' : 'o';
+        coin.classList.add('flipping');
+        setTimeout(() => {
+          coin.classList.remove('flipping');
+          coin.style.transform =
+            w === 'x'
+              ? 'rotateY(0deg) rotateX(0deg)'
+              : 'rotateY(180deg) rotateX(0deg)';
+          coinResult.innerHTML = `<span style="color:${w === 'x' ? gameSettings.xColor : gameSettings.oColor};font-weight:bold;">${w.toUpperCase()} goes first!</span>`;
+          setTimeout(() => {
+            hideModal(coinFlipModal);
+            startGame(w);
+          }, 1500);
+        }, 1500);
+      }
+
+      // --- Event Listeners Setup ---
+      function setupEventListeners() {
+        // Menu Buttons
+        playLocallyBtn.addEventListener('click', () => {
+          const savedState = localStorage.getItem('ticTacSquaredState');
+          if (
+            savedState &&
+            confirm('Continue previous local game? (Cancel for new game)')
+          ) {
+            if (!loadGameState()) {
+              clearSavedGameState();
+              initLocalGame();
+            }
+          } else {
+            clearSavedGameState();
+            initLocalGame();
           }
         });
-      }
-
-      // --- Event Listeners ---
-      document.addEventListener('DOMContentLoaded', () => {
-        setupModalOutsideClickListeners();
-        howToPlayBtn.addEventListener('click', showHowToPlay);
-        closeHowToPlayBtn.addEventListener('click', hideHowToPlay);
-        newGameBtn.addEventListener('click', () => {
-          initGame();
+        playOnlineBtn.addEventListener('click', initOnlineMode);
+        closeOnlineMenuBtn.addEventListener('click', showStartMenu);
+        createGameBtn.addEventListener('click', () => createOnlineGame(false)); // Pass false for non-retry
+        joinGameBtn.addEventListener('click', joinOnlineGame);
+        gameCodeInput.addEventListener('input', () => {
+          gameCodeInput.value = gameCodeInput.value
+            .toUpperCase()
+            .replace(/[^A-Z1-9]/g, '');
+        }); // Force uppercase, allowed chars
+        gameCodeInput.addEventListener('keypress', e => {
+          if (e.key === 'Enter') joinGameBtn.click();
         });
-        playAgainBtn.addEventListener('click', initGame);
-        viewBoardBtn.addEventListener('click', () =>
-          gameOver.classList.remove('show'),
-        );
-        settingsBtn.addEventListener('click', showSettings);
-        cancelSettings.addEventListener('click', hideSettings);
-        saveSettings.addEventListener('click', saveGameSettings);
+        gameCodeDisplay.addEventListener('click', () => {
+          if (shortGameCode) copyToClipboard(shortGameCode);
+        });
 
+        // In-Game Controls
+        howToPlayBtn.addEventListener('click', showHowToPlay);
+        settingsBtn.addEventListener('click', showSettings);
+        newGameBtn.addEventListener('click', () => {
+          if (isOnlineGame) {
+            // Online "New Game" could mean Rematch request or just go to menu
+            // Simple: Go back to main menu, requiring new connection
+            if (
+              confirm(
+                'Start a new game? This will end the current online session.',
+              )
+            ) {
+              sendData({ type: 'quit' }); // Inform opponent (optional, cleanup handles disconnect)
+              handleDisconnection('Started new game'); // Handle locally
+              showStartMenu();
+            }
+          } else {
+            // Local mode
+            if (gameActive || gameOver.classList.contains('show')) {
+              if (confirm('Start a new local game?')) {
+                clearSavedGameState();
+                initLocalGame();
+              }
+            } else {
+              initLocalGame();
+            } // No game active, just start
+          }
+        });
+        quitOnlineBtn.addEventListener('click', () => {
+          if (
+            isOnlineGame &&
+            confirm('Quit the online game? Your opponent will win.')
+          ) {
+            sendData({ type: 'quit' });
+            handleDisconnection('You quit the game.');
+            showStartMenu();
+          }
+        });
+
+        // Game Over Controls
+        playAgainBtn.addEventListener('click', () => {
+          if (!isOnlineGame) {
+            clearSavedGameState();
+            initLocalGame();
+          }
+        });
+        viewBoardBtn.addEventListener('click', () => hideModal(gameOver));
+        goToMenuBtn.addEventListener('click', showStartMenu);
+
+        // Settings Controls
+        saveSettings.addEventListener('click', saveGameSettings);
+        cancelSettings.addEventListener('click', hideSettings); // Now in header
         resetXColorBtn.addEventListener('click', e => {
           e.preventDefault();
           xColorPicker.value = DEFAULT_X_COLOR;
           xColorPicker.dispatchEvent(new Event('input'));
-          xColorPicker.style.backgroundColor = DEFAULT_X_COLOR;
         });
         resetOColorBtn.addEventListener('click', e => {
           e.preventDefault();
           oColorPicker.value = DEFAULT_O_COLOR;
           oColorPicker.dispatchEvent(new Event('input'));
-          oColorPicker.style.backgroundColor = DEFAULT_O_COLOR;
         });
-
-        // Settings: Show/hide AI difficulty when game mode changes
         humanVsHumanRadio.addEventListener('change', () => {
-          if (humanVsHumanRadio.checked)
-            aiDifficultyGroup.style.display = 'none';
+          aiDifficultyGroup.style.display = 'none';
         });
         humanVsAIRadio.addEventListener('change', () => {
-          if (humanVsAIRadio.checked) aiDifficultyGroup.style.display = 'block';
+          aiDifficultyGroup.style.display = 'block';
         });
-        // Removed listener for aiVsAiRadio
 
-        // --- Game Initialization ---
-        loadPreferences(); // Load saved settings first
-        if (!loadGameState()) {
-          // Try loading saved game state
-          initGame(); // If no saved game, start a fresh one
-        }
+        // How to Play Close
+        closeHowToPlayBtn.addEventListener('click', hideHowToPlay);
+
+        // Modal Outside Click Listeners (Refined)
+        [
+          startMenuModal,
+          onlineMenuModal,
+          settingsModal,
+          howToPlayModal,
+          coinFlipModal,
+          gameOver,
+        ].forEach(modal => {
+          if (modal) {
+            modal.addEventListener('click', event => {
+              if (event.target === modal) {
+                // Clicked on the backdrop
+                if (modal === onlineMenuModal) closeOnlineMenuBtn.click();
+                else if (modal === settingsModal) cancelSettings.click();
+                else if (modal === howToPlayModal) closeHowToPlayBtn.click();
+                else if (modal === gameOver) viewBoardBtn.click(); // Same as view board
+                // Don't close startMenuModal or coinFlipModal by clicking outside
+              }
+            });
+          }
+        });
+
+        // Handle user leaving the page during an online game
+        window.addEventListener('beforeunload', event => {
+          if (isOnlineGame && conn && conn.open) {
+            // Standard way to notify opponent is tricky with beforeunload
+            // Best effort: try sending a quick quit message
+            // Note: This is not guaranteed to be sent reliably
+            sendData({ type: 'quit' });
+            // Don't prevent unload, just try to notify
+          }
+        });
+      }
+
+      // --- Initial Load ---
+      document.addEventListener('DOMContentLoaded', () => {
+        setupEventListeners();
+        showStartMenu(); // Always start at the main menu
       });
     </script>
   </body>
