@@ -1,19 +1,26 @@
 <script lang="ts">
+	import BigBoard from '$lib/components/BigBoard.svelte';
 </script>
 
 <svelte:head>
-	<title>Svelte Tailwind Template</title>
-	<meta name="description" content="Svelte Tailwind Template" />
+	<title>Tic Tac Squared</title>
+	<meta name="description" content="Ultimate Tic Tac Toe Game" />
 </svelte:head>
 
 <section>
-	<div class="min-h-screen flex items-center justify-center relative">
-		<div class="text-center relative z-10 px-4">
+	<div
+		class="min-h-screen flex flex-col items-center justify-center relative bg-zinc-800 text-white p-4"
+	>
+		<div class="text-center relative z-10 px-4 mb-4">
 			<h1
-				class="text-6xl md:text-8xl font-bold bg-gradient-to-r from-blue-400 via-fuchsia-400 to-violet-400 inline-block text-transparent bg-clip-text"
+				class="text-5xl md:text-6xl font-bold bg-gradient-to-r from-red-500 via-violet-500 to-blue-500 inline-block text-transparent bg-clip-text mb-2"
 			>
-				Hello World
+				Tic Tac Squared
 			</h1>
+		</div>
+
+		<div class="w-full max-w-[800px] mx-auto">
+			<BigBoard />
 		</div>
 	</div>
 </section>
