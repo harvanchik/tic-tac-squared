@@ -34,24 +34,26 @@
 		<div class="flex justify-between items-center w-full">
 			<!-- Player X -->
 			<div
-				class="flex items-center gap-2 py-2 px-4 rounded-lg transition-all duration-200 text-red-500 shadow-red-700/30 shadow-lg"
+				class="flex items-center gap-2 py-2 px-4 rounded-lg transition-all duration-200 text-red-500 drop-shadow-red-700 drop-shadow-lg/60 ring-2 ring-inset ring-red-500"
 				class:bg-red-900={gameState.currentPlayer === 'X'}
 				class:bg-opacity-30={gameState.currentPlayer === 'X'}
 				class:shadow-lg={gameState.currentPlayer === 'X'}
+				class:!text-red-50={gameState.currentPlayer === 'X'}
 			>
-				<Fa icon={faUser} class="text-xl" />
-				<Fa icon={faXmark} class="text-2xl" />
+				<Fa icon={faUser} class="text-2xl" />
+				<Fa icon={faXmark} class="text-3xl" />
 			</div>
 
 			<!-- Player O -->
 			<div
-				class="flex items-center gap-2 py-2 px-4 rounded-lg transition-all duration-200 text-blue-500 shadow-blue-800/30 shadow-lg ring-blue-600"
+				class="flex items-center gap-2 py-2 px-4 rounded-lg transition-all duration-200 text-blue-500 drop-shadow-blue-700 drop-shadow-lg/60 ring-2 ring-inset ring-blue-500"
 				class:bg-blue-900={gameState.currentPlayer === 'O'}
 				class:bg-opacity-30={gameState.currentPlayer === 'O'}
 				class:shadow-lg={gameState.currentPlayer === 'O'}
+				class:!text-blue-50={gameState.currentPlayer === 'O'}
 			>
-				<Fa icon={faUser} class="text-xl" />
-				<Fa icon={faO} class="text-2xl" />
+				<Fa icon={faUser} class="text-2xl" />
+				<Fa icon={faO} class="text-3xl" />
 			</div>
 		</div>
 	</div>
