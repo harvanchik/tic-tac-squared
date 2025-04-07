@@ -22,8 +22,8 @@
 	disabled={!isActive || value !== null}
 >
 	{#if value === 'X'}
-		<Fa icon={faXmark} class="text-rose-500 text-5xl" />
+		<Fa icon={faXmark} class="text-rose-500 text-[2.6rem]" />
 	{:else if value === 'O'}
-		<Fa icon={faO} class="text-sky-500 text-5xl" />
+		<Fa icon={faO} class="text-sky-500 text-[2.6rem]" />
 	{/if}
 </button>
