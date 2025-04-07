@@ -18,7 +18,7 @@
 	class:hover:bg-zinc-700={isActive && !value}
 	class:red-tint={isLastMove && value === 'X'}
 	class:blue-tint={isLastMove && value === 'O'}
-	class:!cursor-default={!isActive}
+	class:!cursor-default={!isActive || value}
 	onclick={onClick}
 	disabled={!isActive || value !== null}
 >
