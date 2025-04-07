@@ -17,20 +17,20 @@
 </script>
 
 <div
-	class="w-full h-full relative rounded-lg transition-all duration-300 ease-in-out aspect-square overflow-hidden p-[3px] bg-zinc-600 border-2 border-zinc-600"
+	class="w-full h-full relative rounded-xl transition-all duration-300 ease-in-out aspect-square overflow-hidden p-[3px] bg-zinc-600 border-2 border-zinc-600"
 	class:!border-rose-500={winner === 'X'}
 	class:!border-sky-500={winner === 'O'}
-	class:!ring-4={winner !== null}
-	class:!ring-rose-500={winner === 'X'}
-	class:!ring-sky-500={winner === 'O'}
+	class:!border-7={winner}
+	class:red-tint={winner === 'X'}
+	class:blue-tint={winner === 'O'}
 	class:animate-ring-pulse={isActive && !winner}
 	class:ring-white={isActive && !winner}
 	class:opacity-60={winner}
 >
 	<div
-		class="w-full h-full grid grid-cols-3 grid-rows-3 gap-1.5 relative overflow-hidden bg-zinc-600"
-		class:red-tint={winner === 'X'}
-		class:blue-tint={winner === 'O'}
+		class="w-full h-full grid grid-cols-3 grid-rows-3 gap-1.5 p-0.5 relative overflow-hidden"
+		class:!red-tint={winner === 'X'}
+		class:!blue-tint={winner === 'O'}
 	>
 		{#each Array(3) as _, row}
 			{#each Array(3) as _, col}
@@ -58,10 +58,10 @@
 	@keyframes ring-pulse {
 		0%,
 		100% {
-			box-shadow: 0 0 0 1px #fff;
+			box-shadow: 0 0 0 2px #fff;
 		}
 		50% {
-			box-shadow: 0 0 0 3px #fff;
+			box-shadow: 0 0 0 4px #fff;
 		}
 	}
 

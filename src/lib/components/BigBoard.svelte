@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SmallBoard from './SmallBoard.svelte';
-	import { createGameState } from '../game/GameState';
+	import { createGameState, loadGameState, type GameState } from '../game/GameState';
 	import { onMount } from 'svelte';
 	import Fa from 'svelte-fa';
 	import {
@@ -12,25 +12,64 @@
 		faRotate
 	} from '@fortawesome/free-solid-svg-icons';
 
-	// Game state
-	const game = createGameState();
-	let gameState = $state(game.getState());
+	// Create a default empty game state to avoid undefined errors during SSR
+	const createEmptyBoards = () => {
+		return Array(9)
+			.fill(null)
+			.map(() =>
+				Array(3)
+					.fill(null)
+					.map(() => Array(3).fill(null))
+			);
+	};
+
+	const createEmptyBoardWinners = () => {
+		return Array(9).fill(null);
+	};
+
+	// Initialize with default empty state to prevent SSR errors
+	let game = createGameState();
+	let gameState = $state<GameState>({
+		boards: createEmptyBoards(),
+		boardWinners: createEmptyBoardWinners(),
+		currentPlayer: 'X',
+		activeBoard: null,
+		winner: null,
+		isDraw: false,
+		lastMove: null
+	});
+
+	let isInitialized = $state(false);
 
 	// Handle cell click
 	function handleCellClick(boardIndex: number, cellIndex: number) {
+		if (!isInitialized) return;
 		game.makeMove(boardIndex, cellIndex);
 		gameState = game.getState();
 	}
 
 	// Reset game
 	function resetGame() {
+		if (!isInitialized) return;
 		game.resetGame();
 		gameState = game.getState();
 	}
 
 	// Initialize game
 	onMount(() => {
+		// Try to load saved game state from localStorage
+		const savedState = loadGameState();
+
+		// Initialize game with saved state or create a new game
+		game = createGameState(savedState || undefined);
 		gameState = game.getState();
+
+		// Save initial state if it's a new game
+		if (!savedState) {
+			game.saveState();
+		}
+
+		isInitialized = true;
 	});
 </script>
 
@@ -43,7 +82,6 @@
 			<div
 				class="flex items-center gap-2 py-2 px-4 rounded-md transition-all duration-200 text-red-500 drop-shadow-red-700 drop-shadow-lg/60 ring-2 ring-inset ring-red-500"
 				class:bg-red-900={gameState.currentPlayer === 'X'}
-				class:shadow-lg={gameState.currentPlayer === 'X'}
 				class:!text-red-50={gameState.currentPlayer === 'X'}
 			>
 				<Fa icon={faUser} class="text-xl" />
@@ -54,7 +92,6 @@
 			<div
 				class="flex items-center gap-2 py-2 px-4 rounded-md transition-all duration-200 text-sky-500 drop-shadow-sky-700 drop-shadow-lg/60 ring-2 ring-inset ring-sky-500"
 				class:bg-sky-900={gameState.currentPlayer === 'O'}
-				class:shadow-lg={gameState.currentPlayer === 'O'}
 				class:!text-sky-50={gameState.currentPlayer === 'O'}
 			>
 				<Fa icon={faUser} class="text-xl" />

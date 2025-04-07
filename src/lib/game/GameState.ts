@@ -1,9 +1,9 @@
-type Player = 'X' | 'O';
-type CellValue = Player | null;
-type BoardPosition = number | null; // Index from 0-8 for the active board
+export type Player = 'X' | 'O';
+export type CellValue = Player | null;
+export type BoardPosition = number | null; // Index from 0-8 for the active board
 
 // Simplified data structure
-interface GameState {
+export interface GameState {
 	// 9 small boards (3x3 grid), each with 9 cells (3x3 grid)
 	boards: CellValue[][][]; // [boardIndex][row][col]
 	boardWinners: CellValue[]; // Winner of each small board
@@ -18,7 +18,50 @@ interface GameState {
 	} | null; // Track the last move made
 }
 
-export function createGameState() {
+// Local storage key for saving game state
+const STORAGE_KEY = 'tic-tac-squared-game-state';
+
+// Save game state to localStorage
+export function saveGameState(state: GameState): void {
+	// Only run in browser environment
+	if (typeof window !== 'undefined') {
+		try {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+		} catch (error) {
+			console.error('Failed to save game state:', error);
+		}
+	}
+}
+
+// Load game state from localStorage
+export function loadGameState(): GameState | null {
+	// Only run in browser environment
+	if (typeof window !== 'undefined') {
+		try {
+			const savedState = localStorage.getItem(STORAGE_KEY);
+			if (savedState) {
+				return JSON.parse(savedState);
+			}
+		} catch (error) {
+			console.error('Failed to load game state:', error);
+		}
+	}
+	return null;
+}
+
+// Clear saved game state from localStorage
+export function clearSavedGameState(): void {
+	// Only run in browser environment
+	if (typeof window !== 'undefined') {
+		try {
+			localStorage.removeItem(STORAGE_KEY);
+		} catch (error) {
+			console.error('Failed to clear game state:', error);
+		}
+	}
+}
+
+export function createGameState(initialState?: GameState) {
 	// Initialize empty boards (9 small boards, each with a 3x3 grid of cells)
 	const createEmptyBoards = (): CellValue[][][] => {
 		// Create 9 small boards
@@ -39,17 +82,36 @@ export function createGameState() {
 	};
 
 	// Game state
-	let boards = createEmptyBoards();
-	let boardWinners = createEmptyBoardWinners();
-	let currentPlayer: Player = 'X';
-	let activeBoard: BoardPosition = null; // null means any board can be played
-	let winner: CellValue = null;
-	let isDraw = false;
+	let boards: CellValue[][][];
+	let boardWinners: CellValue[];
+	let currentPlayer: Player;
+	let activeBoard: BoardPosition;
+	let winner: CellValue;
+	let isDraw: boolean;
 	let lastMove: {
 		boardIndex: number; // Index from 0-8 for the board
 		cellIndex: number; // Index from 0-8 for the cell within the board
 		player: Player;
-	} | null = null;
+	} | null;
+
+	// Initialize game state (either from provided state or create new)
+	if (initialState) {
+		boards = initialState.boards;
+		boardWinners = initialState.boardWinners;
+		currentPlayer = initialState.currentPlayer;
+		activeBoard = initialState.activeBoard;
+		winner = initialState.winner;
+		isDraw = initialState.isDraw;
+		lastMove = initialState.lastMove;
+	} else {
+		boards = createEmptyBoards();
+		boardWinners = createEmptyBoardWinners();
+		currentPlayer = 'X';
+		activeBoard = null; // null means any board can be played
+		winner = null;
+		isDraw = false;
+		lastMove = null;
+	}
 
 	// Check if a small board has a winner
 	const checkBoardWinner = (board: CellValue[][]): CellValue => {
@@ -214,6 +276,9 @@ export function createGameState() {
 		winner = null;
 		isDraw = false;
 		lastMove = null;
+
+		// Clear saved game state
+		clearSavedGameState();
 	};
 
 	// Get the current game state
@@ -229,9 +294,21 @@ export function createGameState() {
 		};
 	};
 
+	// Save current state to localStorage
+	const saveState = (): void => {
+		saveGameState(getState());
+	};
+
+	// Update internal state after a move and save to localStorage
+	const makeMoveAndSave = (boardIndex: number, cellIndex: number): void => {
+		makeMove(boardIndex, cellIndex);
+		saveState();
+	};
+
 	return {
-		makeMove,
+		makeMove: makeMoveAndSave,
 		resetGame,
-		getState
+		getState,
+		saveState
 	};
 }

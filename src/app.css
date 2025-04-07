@@ -3,10 +3,10 @@
 @plugin '@tailwindcss/typography';
 
 .red-tint {
-	@apply bg-red-800/50;
+	@apply !bg-red-800/70;
 }
 .blue-tint {
-	@apply bg-sky-800/50;
+	@apply !bg-sky-800/70;
 }
 
 .
