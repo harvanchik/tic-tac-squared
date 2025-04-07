@@ -14,10 +14,11 @@
 </script>
 
 <button
-	class="w-full h-full flex items-center justify-center text-xl font-bold transition-all duration-200 aspect-square rounded-md bg-zinc-800"
+	class="w-full h-full flex items-center justify-center hover:cursor-pointer text-xl font-bold transition-all duration-200 aspect-square rounded-md bg-zinc-800"
 	class:hover:bg-zinc-700={isActive && !value}
 	class:red-tint={isLastMove && value === 'X'}
 	class:blue-tint={isLastMove && value === 'O'}
+	class:!cursor-default={!isActive}
 	onclick={onClick}
 	disabled={!isActive || value !== null}
 >
