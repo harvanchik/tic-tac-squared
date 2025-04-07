@@ -14,19 +14,16 @@
 </script>
 
 <button
-	class="w-full h-full flex items-center justify-center border border-zinc-700 text-xl font-bold transition-all duration-200 aspect-square bg-blue-400"
-	class:bg-zinc-700={isActive && !value}
-	class:bg-zinc-800={!isActive || value}
-	class:hover:bg-zinc-600={isActive && !value}
-	class:border-zinc-600={!isActive || value}
-	class:bg-red-400={isLastMove && value === 'X'}
-	class:bg-blue-400={isLastMove && value === 'O'}
+	class="w-full h-full flex items-center justify-center text-xl font-bold transition-all duration-200 aspect-square rounded-md bg-zinc-800"
+	class:hover:bg-zinc-700={isActive && !value}
+	class:red-tint={isLastMove && value === 'X'}
+	class:blue-tint={isLastMove && value === 'O'}
 	onclick={onClick}
 	disabled={!isActive || value !== null}
 >
 	{#if value === 'X'}
-		<Fa icon={faXmark} class="text-red-500 text-7xl" />
+		<Fa icon={faXmark} class="text-red-500 text-5xl" />
 	{:else if value === 'O'}
-		<Fa icon={faO} class="text-blue-500 text-6xl" />
+		<Fa icon={faO} class="text-sky-500 text-5xl" />
 	{/if}
 </button>
