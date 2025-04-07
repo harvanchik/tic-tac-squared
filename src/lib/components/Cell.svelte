@@ -22,7 +22,7 @@
 	disabled={!isActive || value !== null}
 >
 	{#if value === 'X'}
-		<Fa icon={faXmark} class="text-red-500 text-5xl" />
+		<Fa icon={faXmark} class="text-rose-500 text-5xl" />
 	{:else if value === 'O'}
 		<Fa icon={faO} class="text-sky-500 text-5xl" />
 	{/if}

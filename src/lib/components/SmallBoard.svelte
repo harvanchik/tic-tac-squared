@@ -1,7 +1,5 @@
 <script lang="ts">
 	import Cell from './Cell.svelte';
-	import Fa from 'svelte-fa';
-	import { faXmark, faO } from '@fortawesome/free-solid-svg-icons';
 
 	// Props
 	let { boardIndex, board, isActive, onCellClick, winner, lastMove } = $props<{
@@ -19,27 +17,21 @@
 </script>
 
 <div
-	class="w-full h-full relative rounded-lg border-2 transition-all duration-300 ease-in-out aspect-square overflow-hidden p-[3px] bg-zinc-600"
-	class:border-white={isActive && !winner}
-	class:border-zinc-600={!isActive || winner}
-	class:opacity-60={!isActive}
-	class:ring-white={isActive && !winner}
+	class="w-full h-full relative rounded-lg transition-all duration-300 ease-in-out aspect-square overflow-hidden p-[3px] bg-zinc-600 border-2 border-zinc-600"
+	class:!border-rose-500={winner === 'X'}
+	class:!border-sky-500={winner === 'O'}
+	class:!ring-4={winner !== null}
+	class:!ring-rose-500={winner === 'X'}
+	class:!ring-sky-500={winner === 'O'}
 	class:animate-ring-pulse={isActive && !winner}
-	class:ring-2={isActive && !winner}
+	class:ring-white={isActive && !winner}
+	class:opacity-60={winner}
 >
 	<div
 		class="w-full h-full grid grid-cols-3 grid-rows-3 gap-1.5 relative overflow-hidden bg-zinc-600"
+		class:red-tint={winner === 'X'}
+		class:blue-tint={winner === 'O'}
 	>
-		{#if winner}
-			<div class="absolute inset-0 flex items-center justify-center bg-zinc-800 bg-opacity-70 z-10">
-				{#if winner === 'X'}
-					<Fa icon={faXmark} class="text-red-500 text-5xl" />
-				{:else if winner === 'O'}
-					<Fa icon={faO} class="text-blue-500 text-5xl" />
-				{/if}
-			</div>
-		{/if}
-
 		{#each Array(3) as _, row}
 			{#each Array(3) as _, col}
 				{@const cellIndex = row * 3 + col}
@@ -71,5 +63,13 @@
 		50% {
 			box-shadow: 0 0 0 3px #fff;
 		}
+	}
+
+	.red-tint {
+		background-color: rgba(239, 68, 68, 0.08) !important; /* red-500 with opacity */
+	}
+
+	.blue-tint {
+		background-color: rgba(59, 130, 246, 0.08) !important; /* blue-500 with opacity */
 	}
 </style>
