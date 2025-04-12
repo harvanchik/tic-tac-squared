@@ -323,10 +323,10 @@
 						Game Settings
 					</h2>
 					<button
-						class="text-gray-400 hover:text-white transition-colors"
+						class="text-gray-400 hover:text-white transition-colors hover:cursor-pointer"
 						onclick={() => (showSettingsModal = false)}
 					>
-						<Fa icon={faTimes} size="lg" />
+						<Fa icon={faTimes} class="text-2xl" />
 					</button>
 				</div>
 
@@ -336,14 +336,12 @@
 						<h3 class="text-lg font-semibold text-white">Game Mode</h3>
 						<div class="grid grid-cols-2 gap-2">
 							<!-- Human vs Human Option -->
-							<div
-								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+							<button
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameMode === 'human-vs-human'}
 								class:border-transparent={gameMode !== 'human-vs-human'}
 								class:ring-2={gameMode === 'human-vs-human'}
 								class:ring-blue-500={gameMode === 'human-vs-human'}
-								role="menu"
-								aria-hidden="true"
 								onclick={() => (gameMode = 'human-vs-human')}
 							>
 								<div
@@ -359,17 +357,15 @@
 									<Fa icon={faUser} class="text-sky-500 text-lg" />
 								</div>
 								<p class="text-xs text-gray-400 text-center">Local multiplayer</p>
-							</div>
+							</button>
 
 							<!-- Human vs CPU Option -->
-							<div
-								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+							<button
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameMode === 'human-vs-cpu'}
 								class:border-transparent={gameMode !== 'human-vs-cpu'}
 								class:ring-2={gameMode === 'human-vs-cpu'}
 								class:ring-blue-500={gameMode === 'human-vs-cpu'}
-								role="menu"
-								aria-hidden="true"
 								onclick={() => (gameMode = 'human-vs-cpu')}
 							>
 								<div
@@ -385,7 +381,7 @@
 									<Fa icon={faRobot} class="text-sky-500 text-lg" />
 								</div>
 								<p class="text-xs text-gray-400 text-center">Play against CPU</p>
-							</div>
+							</button>
 						</div>
 					</div>
 
@@ -394,14 +390,12 @@
 						<h3 class="text-lg font-semibold text-white">Game Rules</h3>
 						<div class="grid grid-cols-2 gap-2">
 							<!-- Standard Rules Option -->
-							<div
-								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+							<button
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameRules === 'standard'}
 								class:border-transparent={gameRules !== 'standard'}
 								class:ring-2={gameRules === 'standard'}
 								class:ring-blue-500={gameRules === 'standard'}
-								role="menu"
-								aria-hidden="true"
 								onclick={() => (gameRules = 'standard')}
 							>
 								<div
@@ -415,17 +409,15 @@
 								<p class="text-xs text-gray-400 text-center mt-1">
 									Next board determined by last move
 								</p>
-							</div>
+							</button>
 
 							<!-- Free Play Option -->
-							<div
-								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+							<button
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameRules === 'free-play'}
 								class:border-transparent={gameRules !== 'free-play'}
 								class:ring-2={gameRules === 'free-play'}
 								class:ring-blue-500={gameRules === 'free-play'}
-								role="menu"
-								aria-hidden="true"
 								onclick={() => (gameRules = 'free-play')}
 							>
 								<div
@@ -437,7 +429,7 @@
 								</div>
 								<p class="font-medium text-white text-center">Free Play</p>
 								<p class="text-xs text-gray-400 text-center mt-1">Play in any board at any time</p>
-							</div>
+							</button>
 						</div>
 					</div>
 				</div>
@@ -492,10 +484,10 @@
 						<span>How to Play</span>
 					</h2>
 					<button
-						class="text-gray-400 hover:text-white transition-colors"
+						class="text-gray-400 hover:text-white transition-colors hover:cursor-pointer"
 						onclick={() => (showHowToPlayModal = false)}
 					>
-						<Fa icon={faTimes} size="lg" />
+						<Fa icon={faTimes} class="text-2xl" />
 					</button>
 				</div>
 
