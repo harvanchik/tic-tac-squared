@@ -10,7 +10,8 @@
 		faCircleInfo,
 		faGear,
 		faRotate,
-		faTrophy
+		faTrophy,
+		faEye
 	} from '@fortawesome/free-solid-svg-icons';
 
 	// Create a default empty game state to avoid undefined errors during SSR
@@ -167,7 +168,7 @@
 			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
 		>
 			<div class=" p-8 rounded-xl shadow-2xl flex flex-col items-center w-full">
-				<div class="mb-10 flex flex-row space-x-4 items-center animate-bounce text-6xl">
+				<div class="mb-10 flex flex-row space-x-4 items-center text-6xl">
 					<Fa icon={faTrophy} class="text-amber-500" />
 					<h2
 						class="font-bold"
@@ -190,7 +191,7 @@
 						class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
 						onclick={hideVictoryOverlay}
 					>
-						<Fa icon={faCircleInfo} />
+						<Fa icon={faEye} />
 						View Board
 					</button>
 				</div>
