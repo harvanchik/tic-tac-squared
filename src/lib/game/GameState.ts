@@ -2,8 +2,9 @@ export type Player = 'X' | 'O';
 export type CellValue = Player | null;
 export type BoardPosition = number | null; // Index from 0-8 for the active board
 export type GameRules = 'standard' | 'free-play';
-export type GameMode = 'human-vs-human' | 'human-vs-cpu';
+export type GameMode = 'human-vs-human' | 'human-vs-cpu' | 'online-multiplayer';
 export type CpuDifficulty = 'easy' | 'moderate' | 'expert';
+export type OnlineStatus = 'host' | 'guest' | null;
 
 // Import the CPU player logic
 import { CpuPlayer } from './CpuPlayer';
@@ -98,6 +99,7 @@ export interface GameState {
 	gameRules?: GameRules; // Standard or free-play
 	gameMode?: GameMode; // Human vs human or human vs CPU
 	cpuDifficulty?: CpuDifficulty; // Difficulty level for CPU player
+	onlineStatus?: OnlineStatus; // Online status for multiplayer
 }
 
 // local storage key for saving game state
@@ -157,6 +159,7 @@ export function createGameState(initialState?: GameState) {
 	let gameRules: GameRules = 'standard';
 	let gameMode: GameMode = 'human-vs-human';
 	let cpuDifficulty: CpuDifficulty = 'moderate'; // Default CPU difficulty
+	let onlineStatus: OnlineStatus = null; // Default online status
 
 	// initialize from existing state if provided
 	if (initialState) {
@@ -186,6 +189,7 @@ export function createGameState(initialState?: GameState) {
 		if (initialState.gameRules) gameRules = initialState.gameRules;
 		if (initialState.gameMode) gameMode = initialState.gameMode;
 		if (initialState.cpuDifficulty) cpuDifficulty = initialState.cpuDifficulty;
+		if (initialState.onlineStatus) onlineStatus = initialState.onlineStatus;
 	}
 
 	// check if the game is a draw
@@ -260,6 +264,24 @@ export function createGameState(initialState?: GameState) {
 
 		// switch player
 		currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+	};
+
+	// check if a move is valid without making it
+	const checkValidMove = (boardIndex: number, cellIndex: number): boolean => {
+		// if game is over, move is invalid
+		if (winner || isDraw) return false;
+
+		// In standard mode, we enforce the active board rule
+		// In free-play mode, players can move on any board at any time
+		if (gameRules === 'standard' && activeBoard !== null && activeBoard !== boardIndex)
+			return false;
+
+		const targetBoard = smallBoards[boardIndex];
+
+		// if cell is already taken or board is won, move is invalid
+		if (targetBoard.cells[cellIndex] !== null || metaBoard.cells[boardIndex] !== null) return false;
+
+		return true;
 	};
 
 	// Set game rules
@@ -360,7 +382,8 @@ export function createGameState(initialState?: GameState) {
 			lastMove,
 			gameRules,
 			gameMode,
-			cpuDifficulty
+			cpuDifficulty,
+			onlineStatus
 		};
 	};
 
@@ -386,6 +409,7 @@ export function createGameState(initialState?: GameState) {
 		setGameRules,
 		setGameMode,
 		setCpuDifficulty,
-		makeCpuMoveIfNeeded
+		makeCpuMoveIfNeeded,
+		checkValidMove
 	};
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SmallBoard from './SmallBoard.svelte';
 	import { createGameState, loadGameState, type GameState } from '../game/GameState';
+	import { OnlinePlayer, type ConnectionStatus } from '../game/OnlinePlayer';
 	import { onMount } from 'svelte';
 	import Fa from 'svelte-fa';
 	import {
@@ -15,7 +16,11 @@
 		faTimes,
 		faRobot,
 		faBrain,
-		faSpinner
+		faSpinner,
+		faGlobe,
+		faCopy,
+		faCheck,
+		faAngleRight
 	} from '@fortawesome/free-solid-svg-icons';
 
 	// Constants for localStorage keys
@@ -59,9 +64,19 @@
 	// Settings state variables
 	let showSettingsModal = $state(false);
 	let showHowToPlayModal = $state(false);
-	let gameMode = $state<'human-vs-human' | 'human-vs-cpu'>('human-vs-human');
+	let gameMode = $state<'human-vs-human' | 'human-vs-cpu' | 'online-multiplayer'>('human-vs-human');
 	let gameRules = $state<'standard' | 'free-play'>('standard');
 	let cpuDifficulty = $state<'easy' | 'moderate' | 'expert'>('moderate');
+
+	// Online multiplayer state variables
+	let onlinePlayer: OnlinePlayer | null = $state(null);
+	let connectionStatus = $state<ConnectionStatus>('disconnected');
+	let gameCode = $state('');
+	let enteredGameCode = $state('');
+	let showGameCodeInput = $state(false);
+	let isCodeCopied = $state(false);
+	let connectionError = $state('');
+	let isWaitingForOpponent = $state(false);
 
 	// Function to save modal states to localStorage
 	function saveModalState(modalType: 'settings' | 'howToPlay', isOpen: boolean) {
@@ -92,6 +107,194 @@
 		return false;
 	}
 
+	// Initialize OnlinePlayer with callbacks
+	function initializeOnlinePlayer() {
+		onlinePlayer = new OnlinePlayer({
+			onStatusChange: (status, error) => {
+				console.log(
+					`[BigBoard] Connection status changed: ${status}`,
+					error ? `Error: ${error}` : ''
+				);
+				connectionStatus = status;
+				if (error) {
+					connectionError = error;
+				}
+
+				// Update UI based on connection status
+				if (status === 'waiting') {
+					isWaitingForOpponent = true;
+				} else if (status === 'connected') {
+					// Don't hide waiting indicator yet, wait for game-start message
+					console.log('[BigBoard] Connected to peer, awaiting game start');
+				} else if (status === 'disconnected' || status === 'error') {
+					isWaitingForOpponent = false;
+				}
+			},
+			onRemoteMove: (boardIndex, cellIndex) => {
+				console.log(`[BigBoard] Received remote move: board ${boardIndex}, cell ${cellIndex}`);
+
+				// Make the remote player's move on the local board
+				game.makeMove(boardIndex, cellIndex);
+				gameState = game.getState();
+
+				console.log(`[BigBoard] After remote move, current player is: ${gameState.currentPlayer}`);
+				console.log(`[BigBoard] Local player is: ${onlinePlayer?.getLocalPlayer()}`);
+				console.log(
+					`[BigBoard] Is local turn: ${onlinePlayer?.isLocalPlayerTurn(gameState.currentPlayer)}`
+				);
+
+				// Check for victory
+				if (gameState.winner) {
+					showVictoryOverlay = true;
+				}
+			},
+			onRemoteSettings: (rules) => {
+				// Apply received game rules
+				gameRules = rules;
+				game.setGameRules(rules);
+				gameState = game.getState();
+			},
+			onGameStart: () => {
+				// Game is ready to start - both players are connected
+				console.log('[BigBoard] Game starting! Player roles assigned.');
+				isWaitingForOpponent = false; // Now we can hide the waiting indicator
+				showSettingsModal = false;
+
+				// Update UI with player roles
+				if (onlinePlayer) {
+					const role = onlinePlayer.getRole();
+					const localPlayer = onlinePlayer.getLocalPlayer();
+					console.log(`[BigBoard] You are playing as ${role} (${localPlayer})`);
+
+					// Set initial player turn state
+					gameState = game.getState();
+					console.log(`[BigBoard] Current player: ${gameState.currentPlayer}`);
+					console.log(
+						`[BigBoard] Is local turn: ${onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}`
+					);
+				}
+			},
+			onPlayerDisconnect: () => {
+				// Handle opponent disconnection (forfeit)
+				console.log('[BigBoard] Opponent disconnected - you win by forfeit');
+				if (connectionStatus === 'connected') {
+					// Set victory for local player if game was in progress
+					showVictoryOverlay = true;
+					// Revert to human vs human mode
+					gameMode = 'human-vs-human';
+					game.setGameMode('human-vs-human');
+					gameState = game.getState();
+				}
+			}
+		});
+	}
+
+	// Create a new online game as host
+	async function createOnlineGame() {
+		if (!onlinePlayer) {
+			initializeOnlinePlayer();
+		}
+
+		try {
+			connectionStatus = 'connecting';
+			connectionError = '';
+
+			// Create a new game and get the game code
+			gameCode = await onlinePlayer!.createGame();
+
+			// Reset game state for a fresh start
+			game.resetGame({
+				rules: gameRules,
+				mode: 'online-multiplayer'
+			});
+			gameState = game.getState();
+
+			// Set player role as host (X)
+			gameState.onlineStatus = 'host';
+
+			// Now waiting for an opponent to join
+			isWaitingForOpponent = true;
+		} catch (error) {
+			console.error('Failed to create online game:', error);
+			connectionError = 'Failed to create game. Please try again.';
+			connectionStatus = 'error';
+		}
+	}
+
+	// Join an existing online game using a game code
+	async function joinOnlineGame() {
+		if (!enteredGameCode) {
+			connectionError = 'Please enter a valid game code';
+			return;
+		}
+
+		if (!onlinePlayer) {
+			initializeOnlinePlayer();
+		}
+
+		try {
+			connectionStatus = 'connecting';
+			connectionError = '';
+
+			// Format entered code to uppercase
+			const formattedCode = enteredGameCode.toUpperCase();
+
+			// Join the game with the provided code
+			await onlinePlayer!.joinGame(formattedCode);
+
+			// Reset game state for a fresh start
+			game.resetGame({
+				rules: gameRules,
+				mode: 'online-multiplayer'
+			});
+			gameState = game.getState();
+
+			// Set player role as guest (O)
+			gameState.onlineStatus = 'guest';
+		} catch (error) {
+			console.error('Failed to join game:', error);
+			connectionError = 'Failed to join game. Please check the game code and try again.';
+			connectionStatus = 'error';
+		}
+	}
+
+	// Copy game code to clipboard
+	function copyGameCodeToClipboard() {
+		if (typeof navigator !== 'undefined' && gameCode) {
+			try {
+				navigator.clipboard.writeText(gameCode);
+				isCodeCopied = true;
+				setTimeout(() => {
+					isCodeCopied = false;
+				}, 2000);
+			} catch (error) {
+				console.error('Failed to copy game code:', error);
+			}
+		}
+	}
+
+	// Disconnect from online game
+	function disconnectOnlineGame() {
+		if (onlinePlayer) {
+			onlinePlayer.disconnect();
+			onlinePlayer = null;
+		}
+
+		// Reset game mode
+		gameMode = 'human-vs-human';
+		game.setGameMode('human-vs-human');
+
+		// Reset state
+		connectionStatus = 'disconnected';
+		gameCode = '';
+		enteredGameCode = '';
+		isWaitingForOpponent = false;
+		connectionError = '';
+
+		// Update game state
+		gameState = game.getState();
+	}
+
 	// Handle cell click
 	function handleCellClick(boardIndex: number, cellIndex: number) {
 		if (!isInitialized) return;
@@ -99,13 +302,52 @@
 		// Don't allow clicks while CPU is thinking
 		if (isCpuThinking) return;
 
-		game.makeMove(boardIndex, cellIndex);
-		gameState = game.getState();
+		// For online multiplayer, only allow moves on your turn
+		if (gameMode === 'online-multiplayer' && onlinePlayer) {
+			console.log('[BigBoard] Online game - Current player:', gameState.currentPlayer);
+			console.log('[BigBoard] Local player:', onlinePlayer.getLocalPlayer());
+			console.log(
+				'[BigBoard] Is local turn:',
+				onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
+			);
 
-		// check if the game was just won
-		if (gameState.winner) {
-			showVictoryOverlay = true;
-			return;
+			// Check if it's the local player's turn
+			if (!onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
+				console.log('[BigBoard] Not your turn, waiting for opponent');
+				return; // Not your turn
+			}
+
+			// Verify the move is valid before sending
+			const validMove = game.checkValidMove(boardIndex, cellIndex);
+			if (!validMove) {
+				console.log('[BigBoard] Invalid move attempted');
+				return; // Invalid move
+			}
+
+			console.log(`[BigBoard] Making online move: board ${boardIndex}, cell ${cellIndex}`);
+
+			// Make move locally
+			game.makeMove(boardIndex, cellIndex);
+			gameState = game.getState();
+
+			// Send move to remote player
+			onlinePlayer.sendMove(boardIndex, cellIndex, onlinePlayer.getLocalPlayer()!);
+
+			// Check if the game was just won
+			if (gameState.winner) {
+				showVictoryOverlay = true;
+				return;
+			}
+		} else {
+			// Standard local play
+			game.makeMove(boardIndex, cellIndex);
+			gameState = game.getState();
+
+			// check if the game was just won
+			if (gameState.winner) {
+				showVictoryOverlay = true;
+				return;
+			}
 		}
 
 		// After human's move, make CPU move with "thinking" animation if needed
@@ -145,7 +387,10 @@
 		// Update game settings
 		game.setGameRules(gameRules);
 		game.setGameMode(gameMode);
-		game.setCpuDifficulty(cpuDifficulty);
+
+		if (gameMode === 'human-vs-cpu') {
+			game.setCpuDifficulty(cpuDifficulty);
+		}
 
 		// Save the updated state with new settings
 		game.saveState();
@@ -157,6 +402,11 @@
 	// Reset game
 	function resetGame() {
 		if (!isInitialized) return;
+
+		// Disconnect from online game if active
+		if (gameMode === 'online-multiplayer' && onlinePlayer) {
+			disconnectOnlineGame();
+		}
 
 		// Pass current settings to the reset function
 		game.resetGame({
@@ -458,6 +708,30 @@
 								</div>
 								<p class="text-xs text-gray-400 text-center">Play against CPU</p>
 							</button>
+
+							<!-- Online Multiplayer Option -->
+							<button
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class:border-blue-500={gameMode === 'online-multiplayer'}
+								class:border-transparent={gameMode !== 'online-multiplayer'}
+								class:ring-2={gameMode === 'online-multiplayer'}
+								class:ring-blue-500={gameMode === 'online-multiplayer'}
+								onclick={() => (gameMode = 'online-multiplayer')}
+							>
+								<div
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameMode === 'online-multiplayer'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2 justify-center mb-1">
+									<Fa icon={faUser} class="text-rose-500 text-lg" />
+									<span class="font-medium text-white">vs</span>
+									<Fa icon={faGlobe} class="text-sky-500 text-lg" />
+								</div>
+								<p class="text-xs text-gray-400 text-center">Play online</p>
+							</button>
 						</div>
 					</div>
 
@@ -525,6 +799,85 @@
 									<p class="font-medium text-white text-center text-sm">Expert</p>
 									<p class="text-xs text-gray-400 text-center mt-1">Strategic & optimal</p>
 								</button>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Online Multiplayer Options - Only shown when online-multiplayer is selected -->
+					{#if gameMode === 'online-multiplayer'}
+						<div class="flex flex-col gap-2 border-t-2 border-zinc-700 pt-4 mt-2">
+							<h3 class="text-lg font-semibold text-white">Online Multiplayer</h3>
+							<div class="flex flex-col gap-2">
+								<!-- Create Game Option -->
+								<button
+									class="flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+									class:border-blue-500={connectionStatus === 'waiting'}
+									class:border-transparent={connectionStatus !== 'waiting'}
+									class:ring-2={connectionStatus === 'waiting'}
+									class:ring-blue-500={connectionStatus === 'waiting'}
+									onclick={createOnlineGame}
+								>
+									<Fa icon={faGlobe} class="text-sky-500 text-lg mr-2" />
+									<span class="font-medium text-white">Create Game</span>
+								</button>
+
+								<!-- Join Game Option -->
+								<button
+									class="flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+									class:border-blue-500={showGameCodeInput}
+									class:border-transparent={!showGameCodeInput}
+									class:ring-2={showGameCodeInput}
+									class:ring-blue-500={showGameCodeInput}
+									onclick={() => (showGameCodeInput = true)}
+								>
+									<Fa icon={faAngleRight} class="text-sky-500 text-lg mr-2" />
+									<span class="font-medium text-white">Join Game</span>
+								</button>
+
+								<!-- Game Code Input - Only shown when Join Game is clicked -->
+								{#if showGameCodeInput}
+									<div class="flex items-center gap-2">
+										<input
+											type="text"
+											class="w-full p-2 rounded-lg bg-zinc-800 text-white border-2 border-zinc-600 focus:outline-none focus:border-blue-500"
+											placeholder="Enter Game Code"
+											bind:value={enteredGameCode}
+										/>
+										<button
+											class="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+											onclick={joinOnlineGame}
+										>
+											<Fa icon={faCheck} />
+										</button>
+									</div>
+									{#if connectionError}
+										<p class="text-red-500 text-sm mt-2">{connectionError}</p>
+									{/if}
+								{/if}
+
+								<!-- Waiting for Opponent Message - Only shown when waiting for an opponent -->
+								{#if isWaitingForOpponent}
+									<div class="flex flex-col items-center gap-2 mt-4">
+										<p class="text-white text-sm">Waiting for opponent to join...</p>
+										<div class="flex items-center gap-2">
+											<input
+												type="text"
+												class="w-full p-2 rounded-lg bg-zinc-800 text-white border-2 border-zinc-600 focus:outline-none focus:border-blue-500"
+												value={gameCode}
+												readonly
+											/>
+											<button
+												class="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+												onclick={copyGameCodeToClipboard}
+											>
+												<Fa icon={isCodeCopied ? faCheck : faCopy} />
+											</button>
+										</div>
+										{#if isCodeCopied}
+											<p class="text-green-500 text-sm mt-2">Game code copied!</p>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						</div>
 					{/if}
@@ -673,6 +1026,24 @@
 								disadvantageous position.
 							</li>
 							<li>Try to control the center board, as it connects to every other board.</li>
+						</ul>
+					</div>
+
+					<div>
+						<h3 class="text-lg font-semibold mb-2">Online Multiplayer</h3>
+						<ul class="list-disc list-inside space-y-2 text-gray-300">
+							<li>
+								<span class="font-semibold text-blue-400">Create Game:</span> Generate a unique 5-character
+								game code that your opponent can use to join.
+							</li>
+							<li>
+								<span class="font-semibold text-blue-400">Join Game:</span> Enter the 5-character code
+								provided by your friend to join their game.
+							</li>
+							<li>The player who creates the game plays as X and goes first.</li>
+							<li>The player who joins plays as O and goes second.</li>
+							<li>If either player loses connection, the game will forfeit to the other player.</li>
+							<li>You can share the game code by copying it to your clipboard.</li>
 						</ul>
 					</div>
 				</div>
