@@ -2,7 +2,7 @@
 	import Cell from './Cell.svelte';
 
 	// Props
-	let { boardIndex, board, isActive, onCellClick, winner, lastMove } = $props<{
+	let { boardIndex, board, isActive, onCellClick, winner, lastMove, gameWinner } = $props<{
 		boardIndex: number; // Index from 0-8 for the board
 		board: (string | null)[][];
 		isActive: boolean;
@@ -13,6 +13,7 @@
 			cellIndex: number; // Index from 0-8 for the cell within the board
 			player: string;
 		} | null;
+		gameWinner: string | null; // New prop to track overall game winner
 	}>();
 </script>
 
@@ -23,8 +24,8 @@
 	class:!border-6={winner}
 	class:red-tint={winner === 'X'}
 	class:blue-tint={winner === 'O'}
-	class:animate-ring-pulse={isActive && !winner}
-	class:ring-white={isActive && !winner}
+	class:animate-ring-pulse={isActive && !winner && !gameWinner}
+	class:ring-white={isActive && !winner && !gameWinner}
 	class:opacity-50={winner}
 >
 	<div
@@ -39,7 +40,7 @@
 					{row}
 					{col}
 					value={board[row][col]}
-					isActive={isActive && !winner}
+					isActive={isActive && !winner && !gameWinner}
 					onClick={() => onCellClick(boardIndex, cellIndex)}
 					isLastMove={lastMove !== null &&
 						lastMove.boardIndex === boardIndex &&

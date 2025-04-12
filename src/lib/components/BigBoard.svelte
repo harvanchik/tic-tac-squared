@@ -132,6 +132,7 @@
 					winner={gameState.boardWinners[boardIndex]}
 					onCellClick={handleCellClick}
 					lastMove={gameState.lastMove}
+					gameWinner={gameState.winner}
 				/>
 			{/each}
 		{/each}
