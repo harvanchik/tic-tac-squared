@@ -330,9 +330,67 @@
 					</button>
 				</div>
 
-				<div class="w-full space-y-6 mb-6">
-					<!-- Game Rules Options -->
+				<div class="w-full space-y-4">
+					<!-- Game Mode Options -->
 					<div class="flex flex-col gap-2">
+						<h3 class="text-lg font-semibold text-white">Game Mode</h3>
+						<div class="grid grid-cols-2 gap-2">
+							<!-- Human vs Human Option -->
+							<div
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+								class:border-blue-500={gameMode === 'human-vs-human'}
+								class:border-transparent={gameMode !== 'human-vs-human'}
+								class:ring-2={gameMode === 'human-vs-human'}
+								class:ring-blue-500={gameMode === 'human-vs-human'}
+								role="menu"
+								aria-hidden="true"
+								onclick={() => (gameMode = 'human-vs-human')}
+							>
+								<div
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameMode === 'human-vs-human'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2 justify-center mb-1">
+									<Fa icon={faUser} class="text-rose-500 text-lg" />
+									<span class="font-medium text-white">vs</span>
+									<Fa icon={faUser} class="text-sky-500 text-lg" />
+								</div>
+								<p class="text-xs text-gray-400 text-center">Local multiplayer</p>
+							</div>
+
+							<!-- Human vs CPU Option -->
+							<div
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+								class:border-blue-500={gameMode === 'human-vs-cpu'}
+								class:border-transparent={gameMode !== 'human-vs-cpu'}
+								class:ring-2={gameMode === 'human-vs-cpu'}
+								class:ring-blue-500={gameMode === 'human-vs-cpu'}
+								role="menu"
+								aria-hidden="true"
+								onclick={() => (gameMode = 'human-vs-cpu')}
+							>
+								<div
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameMode === 'human-vs-cpu'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2 justify-center mb-1">
+									<Fa icon={faUser} class="text-rose-500 text-lg" />
+									<span class="font-medium text-white">vs</span>
+									<Fa icon={faRobot} class="text-sky-500 text-lg" />
+								</div>
+								<p class="text-xs text-gray-400 text-center">Play against CPU</p>
+							</div>
+						</div>
+					</div>
+
+					<!-- Game Rules Options -->
+					<div class="flex flex-col gap-2 mb-6">
 						<h3 class="text-lg font-semibold text-white">Game Rules</h3>
 						<div class="grid grid-cols-2 gap-2">
 							<!-- Standard Rules Option -->
@@ -382,81 +440,12 @@
 							</div>
 						</div>
 					</div>
-
-					<!-- Game Mode Options -->
-					<div class="flex flex-col gap-2">
-						<h3 class="text-lg font-semibold text-white">Game Mode</h3>
-						<div class="grid grid-cols-2 gap-2">
-							<!-- Human vs Human Option -->
-							<div
-								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
-								class:border-blue-500={gameMode === 'human-vs-human'}
-								class:border-transparent={gameMode !== 'human-vs-human'}
-								class:ring-2={gameMode === 'human-vs-human'}
-								class:ring-blue-500={gameMode === 'human-vs-human'}
-								role="menu"
-								aria-hidden="true"
-								onclick={() => (gameMode = 'human-vs-human')}
-							>
-								<div
-									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
-								>
-									{#if gameMode === 'human-vs-human'}
-										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
-									{/if}
-								</div>
-								<div class="flex items-center gap-2 justify-center mb-1">
-									<Fa icon={faUser} class="text-rose-500 text-sm" />
-									<span class="font-medium text-white">vs</span>
-									<Fa icon={faUser} class="text-sky-500 text-sm" />
-								</div>
-								<p class="text-xs text-gray-400 text-center">Play against another person</p>
-							</div>
-
-							<!-- Human vs CPU Option -->
-							<div
-								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
-								class:border-blue-500={gameMode === 'human-vs-cpu'}
-								class:border-transparent={gameMode !== 'human-vs-cpu'}
-								class:ring-2={gameMode === 'human-vs-cpu'}
-								class:ring-blue-500={gameMode === 'human-vs-cpu'}
-								role="menu"
-								aria-hidden="true"
-								onclick={() => (gameMode = 'human-vs-cpu')}
-							>
-								<div
-									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
-								>
-									{#if gameMode === 'human-vs-cpu'}
-										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
-									{/if}
-								</div>
-								<div class="flex items-center gap-2 justify-center mb-1">
-									<Fa icon={faUser} class="text-rose-500 text-sm" />
-									<span class="font-medium text-white">vs</span>
-									<Fa icon={faRobot} class="text-sky-500 text-sm" />
-								</div>
-								<p class="text-xs text-gray-400 text-center">Play against CPU (Coming soon)</p>
-							</div>
-						</div>
-					</div>
 				</div>
 
 				<!-- Action buttons -->
-				<div class="w-full flex flex-col gap-3">
+				<div class="w-full flex flex-row gap-3">
 					<button
-						class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
-						onclick={() => {
-							// Apply settings without resetting
-							applySettings();
-							showSettingsModal = false;
-						}}
-					>
-						Apply Settings
-					</button>
-
-					<button
-						class="w-full px-6 py-3 bg-zinc-700 hover:bg-zinc-600 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+						class="w-full px-3 py-3 border-2 border-zinc-600 hover:bg-zinc-600 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
 						onclick={() => {
 							// Apply settings and start a new game
 							resetGame();
@@ -464,6 +453,16 @@
 						}}
 					>
 						Apply & New Game
+					</button>
+					<button
+						class="w-full px-3 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+						onclick={() => {
+							// Apply settings without resetting
+							applySettings();
+							showSettingsModal = false;
+						}}
+					>
+						Apply Settings
 					</button>
 				</div>
 			</div>
