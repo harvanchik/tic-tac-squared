@@ -49,6 +49,7 @@
 
 	// Settings state variables
 	let showSettingsModal = $state(false);
+	let showHowToPlayModal = $state(false);
 	let gameMode = $state<'human-vs-human' | 'human-vs-cpu'>('human-vs-human');
 	let gameRules = $state<'standard' | 'free-play'>('standard');
 
@@ -178,6 +179,7 @@
 	<div class="flex gap-4 mt-4 w-full justify-center select-none">
 		<button
 			class="px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+			onclick={() => (showHowToPlayModal = true)}
 		>
 			<Fa icon={faCircleInfo} class="" />
 			How to Play
@@ -342,6 +344,79 @@
 						Apply & New Game
 					</button>
 				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- How to Play Modal -->
+	{#if showHowToPlayModal}
+		<div
+			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
+		>
+			<div
+				class="bg-zinc-900 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-[75vw] max-h-[90vh] overflow-y-auto"
+			>
+				<div class="w-full flex justify-between items-center mb-6">
+					<h2 class="text-3xl font-bold text-white flex items-center gap-2">
+						<Fa icon={faCircleInfo} />
+						<span>How to Play</span>
+					</h2>
+					<button
+						class="text-gray-400 hover:text-white transition-colors"
+						onclick={() => (showHowToPlayModal = false)}
+					>
+						<Fa icon={faTimes} size="lg" />
+					</button>
+				</div>
+
+				<div class="w-full space-y-6 text-white">
+					<div>
+						<h3 class="text-lg font-semibold mb-2">Tic Tac Squared</h3>
+						<p class="text-gray-300 mb-4">
+							A strategic twist on the classic game, played on 9 small tic-tac-toe boards arranged
+							in a 3×3 grid.
+						</p>
+					</div>
+
+					<div>
+						<h3 class="text-lg font-semibold mb-2">How Moves Work</h3>
+						<ul class="list-disc list-inside space-y-2 text-gray-300">
+							<li>
+								<span class="font-semibold text-blue-400">Standard Mode:</span> Your move determines
+								where your opponent plays next. If you play in the top-right cell of any small board,
+								your opponent must play in the top-right small board.
+							</li>
+							<li>Active boards that can be played on have white highlighting.</li>
+							<li>
+								If a move would send your opponent to a completed board, they can play on any
+								available board.
+							</li>
+							<li>
+								<span class="font-semibold text-blue-400">Free Play Mode:</span> Players can move in
+								any valid board at any time.
+							</li>
+						</ul>
+					</div>
+
+					<div>
+						<h3 class="text-lg font-semibold mb-2">Strategy Tips</h3>
+						<ul class="list-disc list-inside space-y-2 text-gray-300">
+							<li>Think ahead about where your move will send your opponent.</li>
+							<li>
+								Sometimes it's strategic to sacrifice a small board to force your opponent into a
+								disadvantageous position.
+							</li>
+							<li>Try to control the center board, as it connects to every other board.</li>
+						</ul>
+					</div>
+				</div>
+
+				<button
+					class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors mt-6 font-semibold cursor-pointer"
+					onclick={() => (showHowToPlayModal = false)}
+				>
+					Got It!
+				</button>
 			</div>
 		</div>
 	{/if}
