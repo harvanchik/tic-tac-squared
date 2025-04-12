@@ -243,6 +243,14 @@
 	{#if showSettingsModal}
 		<div
 			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
+			role="menu"
+			aria-hidden="true"
+			onclick={(e) => {
+				// Only close if clicking the backdrop, not the modal content
+				if (e.target === e.currentTarget) {
+					showSettingsModal = false;
+				}
+			}}
 		>
 			<div class="bg-zinc-900 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-md">
 				<div class="w-full flex justify-between items-center mb-6">
@@ -352,6 +360,14 @@
 	{#if showHowToPlayModal}
 		<div
 			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
+			role="menu"
+			aria-hidden="true"
+			onclick={(e) => {
+				// Only close if clicking the backdrop, not the modal content
+				if (e.target === e.currentTarget) {
+					showHowToPlayModal = false;
+				}
+			}}
 		>
 			<div
 				class="bg-zinc-900 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-[75vw] max-h-[90vh] overflow-y-auto"
