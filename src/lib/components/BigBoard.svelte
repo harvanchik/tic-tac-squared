@@ -267,63 +267,113 @@
 				</div>
 
 				<div class="w-full space-y-6 mb-6">
-					<!-- Game Rules Toggle -->
+					<!-- Game Rules Options -->
 					<div class="flex flex-col gap-2">
 						<h3 class="text-lg font-semibold text-white">Game Rules</h3>
-						<div class="flex items-center bg-zinc-800 p-4 rounded-lg justify-between">
-							<div>
-								<p class="text-white">
-									{gameRules === 'standard' ? 'Standard' : 'Free Play'}
-								</p>
-								<p class="text-sm text-gray-400">
-									{gameRules === 'standard'
-										? 'Next board determined by last move'
-										: 'Move in any board at any time'}
+						<div class="grid grid-cols-2 gap-2">
+							<!-- Standard Rules Option -->
+							<div
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+								class:border-blue-500={gameRules === 'standard'}
+								class:border-transparent={gameRules !== 'standard'}
+								class:ring-2={gameRules === 'standard'}
+								class:ring-blue-500={gameRules === 'standard'}
+								role="menu"
+								aria-hidden="true"
+								onclick={() => (gameRules = 'standard')}
+							>
+								<div
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameRules === 'standard'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<p class="font-medium text-white text-center">Standard</p>
+								<p class="text-xs text-gray-400 text-center mt-1">
+									Next board determined by last move
 								</p>
 							</div>
-							<label class="relative inline-flex items-center cursor-pointer">
-								<input
-									type="checkbox"
-									class="sr-only peer"
-									checked={gameRules === 'free-play'}
-									onchange={() => {
-										gameRules = gameRules === 'standard' ? 'free-play' : 'standard';
-									}}
-								/>
+
+							<!-- Free Play Option -->
+							<div
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+								class:border-blue-500={gameRules === 'free-play'}
+								class:border-transparent={gameRules !== 'free-play'}
+								class:ring-2={gameRules === 'free-play'}
+								class:ring-blue-500={gameRules === 'free-play'}
+								role="menu"
+								aria-hidden="true"
+								onclick={() => (gameRules = 'free-play')}
+							>
 								<div
-									class="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"
-								></div>
-							</label>
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameRules === 'free-play'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<p class="font-medium text-white text-center">Free Play</p>
+								<p class="text-xs text-gray-400 text-center mt-1">Move in any board at any time</p>
+							</div>
 						</div>
 					</div>
 
-					<!-- Game Mode Toggle -->
+					<!-- Game Mode Options -->
 					<div class="flex flex-col gap-2">
 						<h3 class="text-lg font-semibold text-white">Game Mode</h3>
-						<div class="flex items-center bg-zinc-800 p-4 rounded-lg justify-between">
-							<div>
-								<p class="text-white">
-									{gameMode === 'human-vs-human' ? 'Human vs Human' : 'Human vs CPU'}
-								</p>
-								<p class="text-sm text-gray-400">
-									{gameMode === 'human-vs-human'
-										? 'Play against another person'
-										: 'Play against the computer (Coming soon)'}
-								</p>
-							</div>
-							<label class="relative inline-flex items-center cursor-pointer">
-								<input
-									type="checkbox"
-									class="sr-only peer"
-									checked={gameMode === 'human-vs-cpu'}
-									onchange={() => {
-										gameMode = gameMode === 'human-vs-human' ? 'human-vs-cpu' : 'human-vs-human';
-									}}
-								/>
+						<div class="grid grid-cols-2 gap-2">
+							<!-- Human vs Human Option -->
+							<div
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+								class:border-blue-500={gameMode === 'human-vs-human'}
+								class:border-transparent={gameMode !== 'human-vs-human'}
+								class:ring-2={gameMode === 'human-vs-human'}
+								class:ring-blue-500={gameMode === 'human-vs-human'}
+								role="menu"
+								aria-hidden="true"
+								onclick={() => (gameMode = 'human-vs-human')}
+							>
 								<div
-									class="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"
-								></div>
-							</label>
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameMode === 'human-vs-human'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2 justify-center mb-1">
+									<Fa icon={faUser} class="text-rose-500 text-sm" />
+									<span class="font-medium text-white">vs</span>
+									<Fa icon={faUser} class="text-sky-500 text-sm" />
+								</div>
+								<p class="text-xs text-gray-400 text-center">Play against another person</p>
+							</div>
+
+							<!-- Human vs CPU Option -->
+							<div
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2"
+								class:border-blue-500={gameMode === 'human-vs-cpu'}
+								class:border-transparent={gameMode !== 'human-vs-cpu'}
+								class:ring-2={gameMode === 'human-vs-cpu'}
+								class:ring-blue-500={gameMode === 'human-vs-cpu'}
+								role="menu"
+								aria-hidden="true"
+								onclick={() => (gameMode = 'human-vs-cpu')}
+							>
+								<div
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameMode === 'human-vs-cpu'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2 justify-center mb-1">
+									<Fa icon={faUser} class="text-rose-500 text-sm" />
+									<span class="font-medium text-white">vs</span>
+									<Fa icon={faRobot} class="text-sky-500 text-sm" />
+								</div>
+								<p class="text-xs text-gray-400 text-center">Play against CPU (Coming soon)</p>
+							</div>
 						</div>
 					</div>
 				</div>
