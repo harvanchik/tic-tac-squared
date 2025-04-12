@@ -298,15 +298,27 @@ export function createGameState(initialState?: GameState) {
 	};
 
 	// Make CPU move if it's the CPU's turn
-	const makeCpuMoveIfNeeded = (): boolean => {
+	const makeCpuMoveIfNeeded = (
+		onThinkingStart?: () => void,
+		onMoveComplete?: () => void
+	): boolean => {
 		// Only make CPU move if:
 		// 1. Game mode is human-vs-cpu
 		// 2. Current player is O (CPU plays as O)
 		// 3. Game is not over
 		if (gameMode === 'human-vs-cpu' && currentPlayer === 'O' && !winner && !isDraw) {
+			// Signal that CPU is starting to think
+			if (onThinkingStart) onThinkingStart();
+
+			// Get the CPU's move
 			const cpuMove = getCpuMove();
+
 			if (cpuMove) {
 				makeMove(cpuMove.boardIndex, cpuMove.cellIndex);
+
+				// Signal that CPU has completed its move
+				if (onMoveComplete) onMoveComplete();
+
 				return true; // CPU made a move
 			}
 		}
@@ -362,10 +374,8 @@ export function createGameState(initialState?: GameState) {
 		makeMove(boardIndex, cellIndex);
 		saveState();
 
-		// After human's move, make CPU move if needed
-		if (makeCpuMoveIfNeeded()) {
-			saveState(); // Save again after CPU's move
-		}
+		// NOTE: We're removing the automatic CPU move from here
+		// CPU moves are now explicitly handled in BigBoard.svelte with the thinking delay
 	};
 
 	return {

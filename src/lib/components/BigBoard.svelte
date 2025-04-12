@@ -13,7 +13,9 @@
 		faTrophy,
 		faEye,
 		faTimes,
-		faRobot
+		faRobot,
+		faBrain,
+		faSpinner
 	} from '@fortawesome/free-solid-svg-icons';
 
 	// Constants for localStorage keys
@@ -51,6 +53,8 @@
 	let isInitialized = $state(false);
 	// track if we should show the victory overlay or not
 	let showVictoryOverlay = $state(false);
+	// Track when CPU is thinking
+	let isCpuThinking = $state(false);
 
 	// Settings state variables
 	let showSettingsModal = $state(false);
@@ -91,12 +95,46 @@
 	// Handle cell click
 	function handleCellClick(boardIndex: number, cellIndex: number) {
 		if (!isInitialized) return;
+
+		// Don't allow clicks while CPU is thinking
+		if (isCpuThinking) return;
+
 		game.makeMove(boardIndex, cellIndex);
 		gameState = game.getState();
 
 		// check if the game was just won
 		if (gameState.winner) {
 			showVictoryOverlay = true;
+			return;
+		}
+
+		// After human's move, make CPU move with "thinking" animation if needed
+		if (gameState.gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'O') {
+			// Set the thinking flag immediately
+			isCpuThinking = true;
+
+			// Generate a random thinking time between 0.5 and 1.5 seconds
+			const thinkingTime = Math.floor(Math.random() * 1000) + 500; // 500-1500ms
+
+			// Wait for the "thinking" time before making the CPU move
+			setTimeout(() => {
+				// Get the CPU's move and apply it
+				game.makeCpuMoveIfNeeded();
+
+				// Update game state
+				gameState = game.getState();
+
+				// Clear the thinking flag
+				isCpuThinking = false;
+
+				// Check if CPU won with its move
+				if (gameState.winner) {
+					showVictoryOverlay = true;
+				}
+
+				// Save the updated state
+				game.saveState();
+			}, thinkingTime);
 		}
 	}
 
@@ -194,17 +232,27 @@
 			showHowToPlayModal = true;
 		}
 
-		// If it's CPU's turn (O) and game mode is human-vs-cpu, make CPU move
+		// If it's CPU's turn (O) and game mode is human-vs-cpu, make CPU move with thinking animation
 		if (isInitialized && gameState.gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'O') {
+			// Set the thinking flag immediately
+			isCpuThinking = true;
+
+			// Generate a random thinking time between 0.5 and 1.5 seconds
+			const thinkingTime = Math.floor(Math.random() * 1000) + 500; // 500-1500ms
+
 			setTimeout(() => {
+				// Make the CPU move
 				game.makeCpuMoveIfNeeded();
 				gameState = game.getState();
+
+				// Clear the thinking flag
+				isCpuThinking = false;
 
 				// Check if CPU won with its move
 				if (gameState.winner) {
 					showVictoryOverlay = true;
 				}
-			}, 500); // Small delay for better UX
+			}, thinkingTime);
 		}
 	});
 </script>
@@ -213,7 +261,7 @@
 	<!-- Game status bar -->
 	<div class="w-full">
 		<!-- Player indicators -->
-		<div class="flex justify-between items-center w-full">
+		<div class="flex justify-between items-center w-full relative">
 			<!-- Player X -->
 			<div
 				class="flex items-center gap-2 py-2 px-4 rounded-md transition-all duration-200 text-red-500 drop-shadow-red-700 drop-shadow-lg/60 ring-2 ring-inset ring-red-500"
@@ -233,6 +281,16 @@
 				<Fa icon={gameState.gameMode === 'human-vs-cpu' ? faRobot : faUser} class="text-xl" />
 				<Fa icon={faO} class="text-2xl" />
 			</div>
+
+			<!-- CPU Thinking Message -->
+			{#if gameState.gameMode === 'human-vs-cpu' && isCpuThinking}
+				<div
+					class="absolute right-0 -bottom-5 text-xs italic text-gray-400 flex items-center gap-1"
+				>
+					<span>thinking...</span>
+					<Fa icon={faSpinner} class="animate-spin" />
+				</div>
+			{/if}
 		</div>
 	</div>
 
