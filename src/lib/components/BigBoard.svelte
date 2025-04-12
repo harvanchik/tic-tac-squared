@@ -16,6 +16,11 @@
 		faRobot
 	} from '@fortawesome/free-solid-svg-icons';
 
+	// Constants for localStorage keys
+	const GAME_STORAGE_KEY = 'tic-tac-squared-game-state'; // This matches the key in GameState.ts
+	const SETTINGS_MODAL_KEY = 'tic-tac-squared-settings-modal';
+	const HOW_TO_PLAY_MODAL_KEY = 'tic-tac-squared-how-to-play-modal';
+
 	// Create a default empty game state to avoid undefined errors during SSR
 	const createEmptyBoards = () => {
 		return Array(9)
@@ -52,6 +57,35 @@
 	let showHowToPlayModal = $state(false);
 	let gameMode = $state<'human-vs-human' | 'human-vs-cpu'>('human-vs-human');
 	let gameRules = $state<'standard' | 'free-play'>('standard');
+
+	// Function to save modal states to localStorage
+	function saveModalState(modalType: 'settings' | 'howToPlay', isOpen: boolean) {
+		if (typeof window !== 'undefined') {
+			try {
+				const key = modalType === 'settings' ? SETTINGS_MODAL_KEY : HOW_TO_PLAY_MODAL_KEY;
+				localStorage.setItem(key, JSON.stringify({ isOpen }));
+			} catch (error) {
+				console.error('Failed to save modal state:', error);
+			}
+		}
+	}
+
+	// Function to load modal states from localStorage
+	function loadModalState(modalType: 'settings' | 'howToPlay'): boolean {
+		if (typeof window !== 'undefined') {
+			try {
+				const key = modalType === 'settings' ? SETTINGS_MODAL_KEY : HOW_TO_PLAY_MODAL_KEY;
+				const savedState = localStorage.getItem(key);
+				if (savedState) {
+					const parsed = JSON.parse(savedState);
+					return parsed.isOpen;
+				}
+			} catch (error) {
+				console.error('Failed to load modal state:', error);
+			}
+		}
+		return false;
+	}
 
 	// Handle cell click
 	function handleCellClick(boardIndex: number, cellIndex: number) {
@@ -99,6 +133,19 @@
 		showVictoryOverlay = false;
 	}
 
+	// Watch for changes to modal states and save them
+	$effect(() => {
+		if (isInitialized) {
+			saveModalState('settings', showSettingsModal);
+		}
+	});
+
+	$effect(() => {
+		if (isInitialized) {
+			saveModalState('howToPlay', showHowToPlayModal);
+		}
+	});
+
 	// Initialize game
 	onMount(() => {
 		// Try to load saved game state from localStorage
@@ -126,7 +173,21 @@
 			game.saveState();
 		}
 
+		// Load modal states from localStorage
+		const settingsModalOpen = loadModalState('settings');
+		const howToPlayModalOpen = loadModalState('howToPlay');
+
+		// Set modal states after initialization
 		isInitialized = true;
+
+		// Apply loaded modal states
+		if (settingsModalOpen) {
+			showSettingsModal = true;
+		}
+
+		if (howToPlayModalOpen) {
+			showHowToPlayModal = true;
+		}
 	});
 </script>
 
@@ -249,10 +310,13 @@
 				// Only close if clicking the backdrop, not the modal content
 				if (e.target === e.currentTarget) {
 					showSettingsModal = false;
+					// No need to call saveModalState here as the $effect will handle it
 				}
 			}}
 		>
-			<div class="bg-zinc-900 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-md">
+			<div
+				class="bg-zinc-900/95 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-md"
+			>
 				<div class="w-full flex justify-between items-center mb-6">
 					<h2 class="text-2xl font-bold text-white flex items-center gap-2">
 						<Fa icon={faGear} />
@@ -314,7 +378,7 @@
 									{/if}
 								</div>
 								<p class="font-medium text-white text-center">Free Play</p>
-								<p class="text-xs text-gray-400 text-center mt-1">Move in any board at any time</p>
+								<p class="text-xs text-gray-400 text-center mt-1">Play in any board at any time</p>
 							</div>
 						</div>
 					</div>
@@ -416,11 +480,12 @@
 				// Only close if clicking the backdrop, not the modal content
 				if (e.target === e.currentTarget) {
 					showHowToPlayModal = false;
+					// No need to call saveModalState here as the $effect will handle it
 				}
 			}}
 		>
 			<div
-				class="bg-zinc-900 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-[75vw] max-h-[90vh] overflow-y-auto"
+				class="bg-zinc-900/95 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-[50vw] max-h-[90vh] overflow-y-auto"
 			>
 				<div class="w-full flex justify-between items-center mb-6">
 					<h2 class="text-3xl font-bold text-white flex items-center gap-2">
