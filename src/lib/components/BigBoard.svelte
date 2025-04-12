@@ -57,6 +57,7 @@
 	let showHowToPlayModal = $state(false);
 	let gameMode = $state<'human-vs-human' | 'human-vs-cpu'>('human-vs-human');
 	let gameRules = $state<'standard' | 'free-play'>('standard');
+	let cpuDifficulty = $state<'easy' | 'moderate' | 'expert'>('moderate');
 
 	// Function to save modal states to localStorage
 	function saveModalState(modalType: 'settings' | 'howToPlay', isOpen: boolean) {
@@ -106,6 +107,7 @@
 		// Update game settings
 		game.setGameRules(gameRules);
 		game.setGameMode(gameMode);
+		game.setCpuDifficulty(cpuDifficulty);
 
 		// Save the updated state with new settings
 		game.saveState();
@@ -162,6 +164,9 @@
 		if (gameState.gameMode) {
 			gameMode = gameState.gameMode;
 		}
+		if (gameState.cpuDifficulty) {
+			cpuDifficulty = gameState.cpuDifficulty;
+		}
 
 		// Show victory overlay if the game is already won
 		if (gameState.winner) {
@@ -187,6 +192,19 @@
 
 		if (howToPlayModalOpen) {
 			showHowToPlayModal = true;
+		}
+
+		// If it's CPU's turn (O) and game mode is human-vs-cpu, make CPU move
+		if (isInitialized && gameState.gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'O') {
+			setTimeout(() => {
+				game.makeCpuMoveIfNeeded();
+				gameState = game.getState();
+
+				// Check if CPU won with its move
+				if (gameState.winner) {
+					showVictoryOverlay = true;
+				}
+			}, 500); // Small delay for better UX
 		}
 	});
 </script>
@@ -384,6 +402,74 @@
 							</button>
 						</div>
 					</div>
+
+					<!-- CPU Difficulty Options - Only shown when human-vs-cpu is selected -->
+					{#if gameMode === 'human-vs-cpu'}
+						<div class="flex flex-col gap-2 border-t-2 border-zinc-700 pt-4 mt-2">
+							<h3 class="text-lg font-semibold text-white">CPU Difficulty</h3>
+							<div class="grid grid-cols-3 gap-2">
+								<!-- Easy Difficulty Option -->
+								<button
+									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+									class:border-blue-500={cpuDifficulty === 'easy'}
+									class:border-transparent={cpuDifficulty !== 'easy'}
+									class:ring-2={cpuDifficulty === 'easy'}
+									class:ring-blue-500={cpuDifficulty === 'easy'}
+									onclick={() => (cpuDifficulty = 'easy')}
+								>
+									<div
+										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+									>
+										{#if cpuDifficulty === 'easy'}
+											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										{/if}
+									</div>
+									<p class="font-medium text-white text-center text-sm">Easy</p>
+									<p class="text-xs text-gray-400 text-center mt-1">Mostly random moves</p>
+								</button>
+
+								<!-- Moderate Difficulty Option -->
+								<button
+									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+									class:border-blue-500={cpuDifficulty === 'moderate'}
+									class:border-transparent={cpuDifficulty !== 'moderate'}
+									class:ring-2={cpuDifficulty === 'moderate'}
+									class:ring-blue-500={cpuDifficulty === 'moderate'}
+									onclick={() => (cpuDifficulty = 'moderate')}
+								>
+									<div
+										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+									>
+										{#if cpuDifficulty === 'moderate'}
+											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										{/if}
+									</div>
+									<p class="font-medium text-white text-center text-sm">Moderate</p>
+									<p class="text-xs text-gray-400 text-center mt-1">Balanced challenge</p>
+								</button>
+
+								<!-- Expert Difficulty Option -->
+								<button
+									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+									class:border-blue-500={cpuDifficulty === 'expert'}
+									class:border-transparent={cpuDifficulty !== 'expert'}
+									class:ring-2={cpuDifficulty === 'expert'}
+									class:ring-blue-500={cpuDifficulty === 'expert'}
+									onclick={() => (cpuDifficulty = 'expert')}
+								>
+									<div
+										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+									>
+										{#if cpuDifficulty === 'expert'}
+											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										{/if}
+									</div>
+									<p class="font-medium text-white text-center text-sm">Expert</p>
+									<p class="text-xs text-gray-400 text-center mt-1">Strategic & optimal</p>
+								</button>
+							</div>
+						</div>
+					{/if}
 
 					<!-- Game Rules Options -->
 					<div class="flex flex-col gap-2 mb-6">

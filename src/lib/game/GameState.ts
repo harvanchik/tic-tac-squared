@@ -3,6 +3,10 @@ export type CellValue = Player | null;
 export type BoardPosition = number | null; // Index from 0-8 for the active board
 export type GameRules = 'standard' | 'free-play';
 export type GameMode = 'human-vs-human' | 'human-vs-cpu';
+export type CpuDifficulty = 'easy' | 'moderate' | 'expert';
+
+// Import the CPU player logic
+import { CpuPlayer } from './CpuPlayer';
 
 // win patterns for both small boards and the main board
 const WIN_PATTERNS = [
@@ -93,6 +97,7 @@ export interface GameState {
 	lastMove: Move | null; // Track the last move made
 	gameRules?: GameRules; // Standard or free-play
 	gameMode?: GameMode; // Human vs human or human vs CPU
+	cpuDifficulty?: CpuDifficulty; // Difficulty level for CPU player
 }
 
 // local storage key for saving game state
@@ -151,6 +156,7 @@ export function createGameState(initialState?: GameState) {
 	let lastMove: Move | null = null;
 	let gameRules: GameRules = 'standard';
 	let gameMode: GameMode = 'human-vs-human';
+	let cpuDifficulty: CpuDifficulty = 'moderate'; // Default CPU difficulty
 
 	// initialize from existing state if provided
 	if (initialState) {
@@ -179,6 +185,7 @@ export function createGameState(initialState?: GameState) {
 		// Load game settings if available
 		if (initialState.gameRules) gameRules = initialState.gameRules;
 		if (initialState.gameMode) gameMode = initialState.gameMode;
+		if (initialState.cpuDifficulty) cpuDifficulty = initialState.cpuDifficulty;
 	}
 
 	// check if the game is a draw
@@ -265,6 +272,47 @@ export function createGameState(initialState?: GameState) {
 		gameMode = mode;
 	};
 
+	// Set CPU difficulty
+	const setCpuDifficulty = (difficulty: CpuDifficulty): void => {
+		cpuDifficulty = difficulty;
+	};
+
+	// Get CPU's move based on current board state and difficulty
+	const getCpuMove = (): { boardIndex: number; cellIndex: number } | null => {
+		if (winner || isDraw) return null;
+
+		// Convert board format for CPU player
+		const boardsFor3DArray = smallBoards.map((board) => board.to2DArray());
+
+		// Get best move from CPU player algorithm
+		const cpuMove = CpuPlayer.getBestMove(
+			boardsFor3DArray,
+			metaBoard.cells,
+			activeBoard,
+			currentPlayer,
+			gameRules,
+			cpuDifficulty
+		);
+
+		return cpuMove;
+	};
+
+	// Make CPU move if it's the CPU's turn
+	const makeCpuMoveIfNeeded = (): boolean => {
+		// Only make CPU move if:
+		// 1. Game mode is human-vs-cpu
+		// 2. Current player is O (CPU plays as O)
+		// 3. Game is not over
+		if (gameMode === 'human-vs-cpu' && currentPlayer === 'O' && !winner && !isDraw) {
+			const cpuMove = getCpuMove();
+			if (cpuMove) {
+				makeMove(cpuMove.boardIndex, cpuMove.cellIndex);
+				return true; // CPU made a move
+			}
+		}
+		return false; // CPU did not make a move
+	};
+
 	// reset the game state
 	const resetGame = (options?: { rules?: GameRules; mode?: GameMode }): void => {
 		smallBoards.forEach((board) => board.reset());
@@ -299,7 +347,8 @@ export function createGameState(initialState?: GameState) {
 			isDraw,
 			lastMove,
 			gameRules,
-			gameMode
+			gameMode,
+			cpuDifficulty
 		};
 	};
 
@@ -312,6 +361,11 @@ export function createGameState(initialState?: GameState) {
 	const makeMoveAndSave = (boardIndex: number, cellIndex: number): void => {
 		makeMove(boardIndex, cellIndex);
 		saveState();
+
+		// After human's move, make CPU move if needed
+		if (makeCpuMoveIfNeeded()) {
+			saveState(); // Save again after CPU's move
+		}
 	};
 
 	return {
@@ -320,6 +374,8 @@ export function createGameState(initialState?: GameState) {
 		getState,
 		saveState,
 		setGameRules,
-		setGameMode
+		setGameMode,
+		setCpuDifficulty,
+		makeCpuMoveIfNeeded
 	};
 }
