@@ -9,7 +9,8 @@
 		faUser,
 		faCircleInfo,
 		faGear,
-		faRotate
+		faRotate,
+		faTrophy
 	} from '@fortawesome/free-solid-svg-icons';
 
 	// Create a default empty game state to avoid undefined errors during SSR
@@ -40,12 +41,19 @@
 	});
 
 	let isInitialized = $state(false);
+	// track if we should show the victory overlay or not
+	let showVictoryOverlay = $state(false);
 
 	// Handle cell click
 	function handleCellClick(boardIndex: number, cellIndex: number) {
 		if (!isInitialized) return;
 		game.makeMove(boardIndex, cellIndex);
 		gameState = game.getState();
+
+		// check if the game was just won
+		if (gameState.winner) {
+			showVictoryOverlay = true;
+		}
 	}
 
 	// Reset game
@@ -53,6 +61,12 @@
 		if (!isInitialized) return;
 		game.resetGame();
 		gameState = game.getState();
+		showVictoryOverlay = false;
+	}
+
+	// Hide the victory overlay but keep the game state
+	function hideVictoryOverlay() {
+		showVictoryOverlay = false;
 	}
 
 	// Initialize game
@@ -64,6 +78,11 @@
 		game = createGameState(savedState || undefined);
 		gameState = game.getState();
 
+		// Show victory overlay if the game is already won
+		if (gameState.winner) {
+			showVictoryOverlay = true;
+		}
+
 		// Save initial state if it's a new game
 		if (!savedState) {
 			game.saveState();
@@ -73,7 +92,7 @@
 	});
 </script>
 
-<div class="flex flex-col items-center gap-4 w-full max-w-[550px] mx-auto">
+<div class="flex flex-col items-center gap-4 w-full max-w-[550px] mx-auto relative">
 	<!-- Game status bar -->
 	<div class="w-full">
 		<!-- Player indicators -->
@@ -141,4 +160,41 @@
 			New Game
 		</button>
 	</div>
+
+	<!-- Victory overlay - shown when a player wins -->
+	{#if showVictoryOverlay}
+		<div
+			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
+		>
+			<div class=" p-8 rounded-xl shadow-2xl flex flex-col items-center w-full">
+				<div class="mb-10 flex flex-row space-x-4 items-center animate-bounce text-6xl">
+					<Fa icon={faTrophy} class="text-amber-500" />
+					<h2
+						class="font-bold"
+						class:text-rose-500={gameState.winner === 'X'}
+						class:text-sky-500={gameState.winner === 'O'}
+					>
+						Player {gameState.winner} Wins!
+					</h2>
+					<Fa icon={faTrophy} class="text-amber-500" />
+				</div>
+				<div class="flex gap-4 w-full justify-center">
+					<button
+						class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+						onclick={resetGame}
+					>
+						<Fa icon={faRotate} />
+						Play Again
+					</button>
+					<button
+						class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+						onclick={hideVictoryOverlay}
+					>
+						<Fa icon={faCircleInfo} />
+						View Board
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>
