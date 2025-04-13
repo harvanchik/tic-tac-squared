@@ -1239,7 +1239,6 @@
 										class:cursor-pointer={connectionStatus !== 'connected'}
 										onclick={() => {
 											if (connectionStatus !== 'connected') {
-												
 												// Show the game code input
 												showGameCodeInput = true;
 											}
@@ -1425,9 +1424,9 @@
 						<h3 class="text-lg font-semibold mb-2">How Moves Work</h3>
 						<ul class="list-disc list-inside space-y-2 text-gray-300">
 							<li>
-								<span class="font-semibold text-sky-400">Standard Mode:</span> Your move determines
-								where your opponent plays next. If you play in the top-right cell of any small board,
-								your opponent must play in the top-right small board.
+								<span class="font-semibold text-sky-400">Standard Mode:</span> Your move determines where
+								your opponent plays next. If you play in the top-right cell of any small board, your
+								opponent must play in the top-right small board.
 							</li>
 							<li>Active boards that can be played on have white highlighting.</li>
 							<li>
@@ -1435,8 +1434,8 @@
 								available board.
 							</li>
 							<li>
-								<span class="font-semibold text-sky-400">Free Play Mode:</span> Players can move in
-								any valid board at any time.
+								<span class="font-semibold text-sky-400">Free Play Mode:</span> Players can move in any
+								valid board at any time.
 							</li>
 						</ul>
 					</div>
