@@ -1223,7 +1223,7 @@
 										onclick={cancelHostedGame}
 									>
 										<div class="flex items-center">
-											<Fa icon={faTimes} class="text-lg mr-2 text-rose-500" />
+											<Fa icon={faTimes} class="text-lg mr-2 text-rose-500 mt-[3px]" />
 											<span class="font-medium text-white">Cancel Game</span>
 										</div>
 									</button>
