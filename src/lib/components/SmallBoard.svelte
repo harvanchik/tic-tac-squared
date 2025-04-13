@@ -10,7 +10,8 @@
 		winner,
 		lastMove,
 		gameWinner,
-		isLocalPlayerTurn = true
+		isLocalPlayerTurn = true,
+		boardDisabled // New prop to disable cell interaction
 	} = $props<{
 		boardIndex: number; // Index from 0-8 for the board
 		board: (string | null)[][];
@@ -24,6 +25,7 @@
 		} | null;
 		gameWinner: string | null; // New prop to track overall game winner
 		isLocalPlayerTurn?: boolean; // Added property to indicate if it's the local player's turn in online multiplayer
+		boardDisabled?: boolean; // New prop to disable cell interaction
 	}>();
 </script>
 
@@ -46,11 +48,12 @@
 		{#each Array(3) as _, row}
 			{#each Array(3) as _, col}
 				{@const cellIndex = row * 3 + col}
+				{@const cellClickable = isActive && !winner && !gameWinner && !boardDisabled}
 				<Cell
 					{row}
 					{col}
 					value={board[row][col]}
-					isActive={isActive && !winner && !gameWinner}
+					isActive={cellClickable}
 					onClick={() => onCellClick(boardIndex, cellIndex)}
 					isLastMove={lastMove !== null &&
 						lastMove.boardIndex === boardIndex &&

@@ -303,7 +303,7 @@ export function createGameState(initialState?: GameState) {
 	};
 
 	// Set disconnect reason
-	const setDisconnectReason = (reason: 'forfeit' | 'connection-lost'): void => {
+	const setDisconnectReason = (reason: 'forfeit' | 'connection-lost' | undefined): void => {
 		disconnectReason = reason;
 	};
 

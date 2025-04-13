@@ -64,6 +64,8 @@
 	let showVictoryOverlay = $state(false);
 	// Track when CPU is thinking
 	let isCpuThinking = $state(false);
+	// Track if the entire board should be disabled (game over, forfeit, disconnection)
+	let boardDisabled = $state(false);
 
 	// Settings state variables
 	let showSettingsModal = $state(false);
@@ -249,19 +251,19 @@
 					// Set victory for local player if game was in progress
 					showVictoryOverlay = true;
 
-					// Reset the game board but preserve all settings
-					game.resetGame({
-						rules: previousRules,
-						mode: previousMode // Keep the online-multiplayer mode
-					});
-
-					game.setCpuDifficulty(previousDifficulty);
+					// DO NOT reset the game board for the player who wins via forfeit
+					// Just update the connection state
 
 					// Reset connection-related state
 					connectionStatus = 'disconnected';
 					if (onlinePlayer) {
 						onlinePlayer = null;
 					}
+
+					// Clear game code and code input state to reset join interface
+					gameCode = '';
+					enteredGameCode = '';
+					showGameCodeInput = false;
 
 					// Update game state to reflect changes
 					gameState = game.getState();
@@ -400,6 +402,12 @@
 		// Don't allow clicks while CPU is thinking
 		if (isCpuThinking) return;
 
+		// Clear any disconnect reason when making a move in a new game
+		if (gameState.disconnectReason) {
+			game.setDisconnectReason(undefined);
+			gameState = game.getState();
+		}
+
 		// For online multiplayer, only allow moves on your turn
 		if (gameMode === 'online-multiplayer' && onlinePlayer) {
 			console.log('[BigBoard] Online game - Current player:', gameState.currentPlayer);
@@ -501,18 +509,51 @@
 	function resetGame() {
 		if (!isInitialized) return;
 
-		// Disconnect from online game if active
+		console.log('[BigBoard] Resetting game, current game mode:', gameMode);
+
+		// First, make sure to clean up any online game state
 		if (gameMode === 'online-multiplayer' && onlinePlayer) {
-			disconnectOnlineGame();
+			// If in an online game, properly disconnect
+			if (onlinePlayer) {
+				onlinePlayer.disconnect();
+				onlinePlayer = null;
+			}
+
+			// Reset online-related state
+			connectionStatus = 'disconnected';
+			gameCode = '';
+			enteredGameCode = '';
+			showGameCodeInput = false;
+			isWaitingForOpponent = false;
+			connectionError = '';
 		}
 
-		// Pass current settings to the reset function
+		// Change game mode to human-vs-human if currently in online multiplayer
+		if (gameMode === 'online-multiplayer') {
+			gameMode = 'human-vs-human';
+		}
+
+		// Explicitly reset any victory/disconnection state
+		game.setDisconnectReason(undefined);
+
+		// Reset the game with current settings (which now has gameMode properly set)
 		game.resetGame({
 			rules: gameRules,
 			mode: gameMode
 		});
 
+		// Clear user forfeit flag
+		userForfeited = false;
+
+		// Make sure to re-enable the board for the new game
+		boardDisabled = false;
+
+		// Get updated state
 		gameState = game.getState();
+
+		console.log('[BigBoard] After reset, disconnect reason:', gameState.disconnectReason);
+
+		// Hide victory overlay
 		showVictoryOverlay = false;
 	}
 
@@ -539,6 +580,33 @@
 		if (isInitialized) {
 			saveGameSettings();
 		}
+	});
+
+	// Update boardDisabled flag when game ends (win, draw, disconnect)
+	$effect(() => {
+		// In local modes, only disable when there's a winner or draw
+		if (gameMode !== 'online-multiplayer') {
+			boardDisabled = gameState.winner !== null || gameState.isDraw === true;
+			return;
+		}
+
+		// In online mode, also disable when there's a disconnect reason
+		if (gameState.winner || gameState.isDraw || gameState.disconnectReason) {
+			boardDisabled = true;
+		} else {
+			boardDisabled = false;
+		}
+
+		console.log(
+			'[BigBoard] Board disabled state:',
+			boardDisabled,
+			'Winner:',
+			gameState.winner,
+			'Draw:',
+			gameState.isDraw,
+			'Disconnect:',
+			gameState.disconnectReason
+		);
 	});
 
 	// Initialize game
@@ -694,6 +762,7 @@
 					isLocalPlayerTurn={gameMode !== 'online-multiplayer' ||
 						!onlinePlayer ||
 						onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}
+					{boardDisabled}
 				/>
 			{/each}
 		{/each}
@@ -752,20 +821,42 @@
 					<Fa icon={faTrophy} class="text-amber-500" />
 				</div>
 				<div class="flex gap-4 w-full justify-center">
-					<button
-						class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
-						onclick={resetGame}
-					>
-						<Fa icon={faRotate} />
-						Play Again
-					</button>
-					<button
-						class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
-						onclick={hideVictoryOverlay}
-					>
-						<Fa icon={faEye} />
-						View Board
-					</button>
+					{#if gameState.disconnectReason === 'forfeit' || gameState.disconnectReason === 'connection-lost'}
+						<!-- For forfeit/disconnection wins, show Settings and View Board buttons -->
+						<button
+							class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+							onclick={() => {
+								hideVictoryOverlay();
+								showSettingsModal = true;
+							}}
+						>
+							<Fa icon={faGear} />
+							Settings
+						</button>
+						<button
+							class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+							onclick={hideVictoryOverlay}
+						>
+							<Fa icon={faEye} />
+							View Board
+						</button>
+					{:else}
+						<!-- For normal wins, show Play Again and View Board buttons -->
+						<button
+							class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+							onclick={resetGame}
+						>
+							<Fa icon={faRotate} />
+							Play Again
+						</button>
+						<button
+							class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+							onclick={hideVictoryOverlay}
+						>
+							<Fa icon={faEye} />
+							View Board
+						</button>
+					{/if}
 				</div>
 			</div>
 		</div>
