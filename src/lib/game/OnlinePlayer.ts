@@ -31,6 +31,7 @@ export interface SyncMessage {
 export interface StatusMessage {
 	type: 'status';
 	status: 'connected' | 'disconnected' | 'game-start' | 'forfeit' | 'game-full';
+	reason?: 'forfeit' | 'connection-lost';
 }
 
 // Union type for all message types
@@ -59,11 +60,12 @@ export class OnlinePlayer {
 		onRemoteSettings?: (gameRules: GameRules) => void;
 		onRemoteSync?: (syncData: Partial<SyncMessage>) => void;
 		onGameStart?: () => void;
-		onPlayerDisconnect?: () => void;
+		onPlayerDisconnect?: (reason?: 'forfeit' | 'connection-lost') => void;
 	} = {};
 	private status: ConnectionStatus = 'disconnected';
 	private role: PlayerRole | null = null;
 	private localPlayer: Player | null = null;
+	private forfeitReceived: boolean = false; // Flag to track if a forfeit message has been received
 
 	/**
 	 * Initialize the OnlinePlayer with callback functions
@@ -74,7 +76,7 @@ export class OnlinePlayer {
 		onRemoteSettings?: (gameRules: GameRules) => void;
 		onRemoteSync?: (syncData: Partial<SyncMessage>) => void;
 		onGameStart?: () => void;
-		onPlayerDisconnect?: () => void;
+		onPlayerDisconnect?: (reason?: 'forfeit' | 'connection-lost') => void;
 	}) {
 		this.callbacks = callbacks;
 	}
@@ -327,9 +329,12 @@ export class OnlinePlayer {
 		conn.on('close', () => {
 			console.log('[OnlinePlayer] Connection closed');
 
-			// Notify about disconnection
-			if (this.callbacks.onPlayerDisconnect) {
-				this.callbacks.onPlayerDisconnect();
+			// Only notify about disconnection if a forfeit message wasn't already received
+			if (this.callbacks.onPlayerDisconnect && !this.forfeitReceived) {
+				console.log('[OnlinePlayer] Connection closed - sending connection-lost event');
+				this.callbacks.onPlayerDisconnect('connection-lost');
+			} else if (this.forfeitReceived) {
+				console.log('[OnlinePlayer] Connection closed after forfeit - ignoring disconnect event');
 			}
 
 			this.updateStatus('disconnected');
@@ -399,7 +404,11 @@ export class OnlinePlayer {
 						this.callbacks.onGameStart();
 					}
 				} else if (message.status === 'forfeit' && this.callbacks.onPlayerDisconnect) {
-					this.callbacks.onPlayerDisconnect();
+					console.log(`[OnlinePlayer] Opponent forfeited the game`);
+					// Set the forfeit flag to true
+					this.forfeitReceived = true;
+					// Pass the forfeit reason to the callback
+					this.callbacks.onPlayerDisconnect('forfeit');
 				} else if (message.status === 'game-full') {
 					// Handle the case when trying to join a game that's already full
 					console.log('[OnlinePlayer] Received game-full message - game already has 2 players');
@@ -506,7 +515,8 @@ export class OnlinePlayer {
 		if (this.connection && this.connection.open) {
 			this.sendMessage({
 				type: 'status',
-				status: 'forfeit'
+				status: 'forfeit',
+				reason: 'forfeit'
 			});
 		}
 

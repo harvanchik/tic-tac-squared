@@ -20,7 +20,8 @@
 		faGlobe,
 		faCopy,
 		faCheck,
-		faAngleRight
+		faAngleRight,
+		faRightFromBracket
 	} from '@fortawesome/free-solid-svg-icons';
 
 	// Constants for localStorage keys
@@ -80,6 +81,9 @@
 	let isCodeCopied = $state(false);
 	let connectionError = $state('');
 	let isWaitingForOpponent = $state(false);
+
+	// For tracking if the user intentionally forfeited to prevent showing disconnect message
+	let userForfeited = $state(false);
 
 	// Function to save modal states to localStorage
 	function saveModalState(modalType: 'settings' | 'howToPlay', isOpen: boolean) {
@@ -226,15 +230,40 @@
 					);
 				}
 			},
-			onPlayerDisconnect: () => {
-				// Handle opponent disconnection (forfeit)
-				console.log('[BigBoard] Opponent disconnected - you win by forfeit');
+			onPlayerDisconnect: (reason) => {
+				// Handle opponent disconnection (forfeit or lost connection)
+				if (reason === 'forfeit') {
+					console.log('[BigBoard] Opponent intentionally forfeited the game');
+					game.setDisconnectReason('forfeit');
+				} else {
+					console.log('[BigBoard] Opponent lost connection');
+					game.setDisconnectReason('connection-lost');
+				}
+
+				// Store current settings
+				const previousRules = gameRules;
+				const previousMode = gameMode; // Keep current game mode (online-multiplayer)
+				const previousDifficulty = cpuDifficulty;
+
 				if (connectionStatus === 'connected') {
 					// Set victory for local player if game was in progress
 					showVictoryOverlay = true;
-					// Revert to human vs human mode
-					gameMode = 'human-vs-human';
-					game.setGameMode('human-vs-human');
+
+					// Reset the game board but preserve all settings
+					game.resetGame({
+						rules: previousRules,
+						mode: previousMode // Keep the online-multiplayer mode
+					});
+
+					game.setCpuDifficulty(previousDifficulty);
+
+					// Reset connection-related state
+					connectionStatus = 'disconnected';
+					if (onlinePlayer) {
+						onlinePlayer = null;
+					}
+
+					// Update game state to reflect changes
 					gameState = game.getState();
 				}
 			}
@@ -328,16 +357,29 @@
 
 	// Disconnect from online game
 	function disconnectOnlineGame() {
+		// Preserve all current settings
+		const previousRules = gameRules;
+		const previousMode = gameMode; // Preserve the game mode
+		const previousDifficulty = cpuDifficulty;
+
+		// Set flag that user is intentionally forfeiting to prevent showing disconnect message
+		userForfeited = true;
+
 		if (onlinePlayer) {
 			onlinePlayer.disconnect();
 			onlinePlayer = null;
 		}
 
-		// Reset game mode
-		gameMode = 'human-vs-human';
-		game.setGameMode('human-vs-human');
+		// Reset game board but keep settings
+		game.resetGame({
+			rules: previousRules,
+			mode: previousMode // Keep the same game mode that was in use
+		});
 
-		// Reset state
+		// Restore CPU difficulty setting
+		game.setCpuDifficulty(previousDifficulty);
+
+		// Reset online state
 		connectionStatus = 'disconnected';
 		gameCode = '';
 		enteredGameCode = '';
@@ -346,6 +388,9 @@
 
 		// Update game state
 		gameState = game.getState();
+
+		// Keep settings menu open for the user who forfeited
+		showSettingsModal = true;
 	}
 
 	// Handle cell click
@@ -682,7 +727,7 @@
 	</div>
 
 	<!-- Victory overlay - shown when a player wins -->
-	{#if showVictoryOverlay}
+	{#if showVictoryOverlay && !userForfeited}
 		<div
 			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
 		>
@@ -691,13 +736,19 @@
 			>
 				<div class="mb-10 flex flex-row space-x-4 items-center text-6xl">
 					<Fa icon={faTrophy} class="text-amber-500" />
-					<h2
-						class="font-bold"
-						class:text-rose-500={gameState.winner === 'X'}
-						class:text-sky-500={gameState.winner === 'O'}
-					>
-						Player {gameState.winner} Wins!
-					</h2>
+					{#if gameState.disconnectReason === 'forfeit'}
+						<h2 class="font-bold text-amber-500">Opponent Forfeited!</h2>
+					{:else if gameState.disconnectReason === 'connection-lost'}
+						<h2 class="font-bold text-amber-500">Opponent Lost Connection!</h2>
+					{:else}
+						<h2
+							class="font-bold"
+							class:text-rose-500={gameState.winner === 'X'}
+							class:text-sky-500={gameState.winner === 'O'}
+						>
+							Player {gameState.winner} Wins!
+						</h2>
+					{/if}
 					<Fa icon={faTrophy} class="text-amber-500" />
 				</div>
 				<div class="flex gap-4 w-full justify-center">
@@ -924,6 +975,17 @@
 											<Fa icon={isCodeCopied ? faCheck : faCopy} />
 										</button>
 									</div>
+								{:else if connectionStatus === 'connected'}
+									<!-- Leave Game Button - Shown when connected to a game -->
+									<button
+										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 select-none w-full border-2 border-transparent"
+										onclick={disconnectOnlineGame}
+									>
+										<div class="flex items-center text-rose-500/90 hover:text-rose-600">
+											<Fa icon={faRightFromBracket} class="text-lg mr-2" />
+											<span class="font-medium">Leave Current Game</span>
+										</div>
+									</button>
 								{:else}
 									<!-- Create Game Button -->
 									<button
@@ -991,23 +1053,6 @@
 											<span class="font-medium text-white">Join Game</span>
 										</div>
 									</button>
-								{/if}
-
-								{#if connectionStatus === 'connected'}
-									<div
-										class="flex items-center justify-between p-3 rounded-lg bg-zinc-800 border-2 border-green-500"
-									>
-										<div class="flex items-center">
-											<Fa icon={faCheck} class="text-green-500 text-lg mr-2" />
-											<span class="font-medium text-white">Connected to game</span>
-										</div>
-										<button
-											class="text-red-400 hover:text-red-300 transition-colors"
-											onclick={disconnectOnlineGame}
-										>
-											<Fa icon={faTimes} />
-										</button>
-									</div>
 								{/if}
 							</div>
 						</div>

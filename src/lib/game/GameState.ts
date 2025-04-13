@@ -100,6 +100,7 @@ export interface GameState {
 	gameMode?: GameMode; // Human vs human or human vs CPU
 	cpuDifficulty?: CpuDifficulty; // Difficulty level for CPU player
 	onlineStatus?: OnlineStatus; // Online status for multiplayer
+	disconnectReason?: 'forfeit' | 'connection-lost'; // Reason for opponent disconnecting in online mode
 }
 
 // local storage key for saving game state
@@ -160,6 +161,8 @@ export function createGameState(initialState?: GameState) {
 	let gameMode: GameMode = 'human-vs-human';
 	let cpuDifficulty: CpuDifficulty = 'moderate'; // Default CPU difficulty
 	let onlineStatus: OnlineStatus = null; // Default online status
+	// track whether there was a disconnection and the reason
+	let disconnectReason: 'forfeit' | 'connection-lost' | undefined = undefined;
 
 	// initialize from existing state if provided
 	if (initialState) {
@@ -299,6 +302,11 @@ export function createGameState(initialState?: GameState) {
 		cpuDifficulty = difficulty;
 	};
 
+	// Set disconnect reason
+	const setDisconnectReason = (reason: 'forfeit' | 'connection-lost'): void => {
+		disconnectReason = reason;
+	};
+
 	// Get CPU's move based on current board state and difficulty
 	const getCpuMove = (): { boardIndex: number; cellIndex: number } | null => {
 		if (winner || isDraw) return null;
@@ -383,7 +391,8 @@ export function createGameState(initialState?: GameState) {
 			gameRules,
 			gameMode,
 			cpuDifficulty,
-			onlineStatus
+			onlineStatus,
+			disconnectReason
 		};
 	};
 
@@ -410,6 +419,7 @@ export function createGameState(initialState?: GameState) {
 		setGameMode,
 		setCpuDifficulty,
 		makeCpuMoveIfNeeded,
-		checkValidMove
+		checkValidMove,
+		setDisconnectReason
 	};
 }
