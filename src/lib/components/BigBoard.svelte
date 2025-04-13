@@ -511,15 +511,15 @@
 	<!-- Game status bar -->
 	<div class="w-full">
 		<!-- Player indicators -->
-		<div class="flex justify-between items-center w-full relative">
+		<div class="flex justify-between items-center w-full relative px-2.5 md:px-1.5">
 			<!-- Player X -->
 			<div
 				class="flex items-center gap-2 py-2 px-4 rounded-md transition-all duration-200 text-red-500 drop-shadow-red-700 drop-shadow-lg/60 ring-2 ring-inset ring-red-500"
 				class:bg-red-900={gameState.currentPlayer === 'X'}
 				class:!text-red-50={gameState.currentPlayer === 'X'}
 			>
-				<Fa icon={faUser} class="text-xl" />
-				<Fa icon={faXmark} class="text-2xl" />
+				<Fa icon={faUser} class="text-lg md:text-xl" />
+				<Fa icon={faXmark} class="text-xl md:text-2xl" />
 			</div>
 
 			<!-- Player O -->
@@ -528,8 +528,11 @@
 				class:bg-sky-900={gameState.currentPlayer === 'O'}
 				class:!text-sky-50={gameState.currentPlayer === 'O'}
 			>
-				<Fa icon={gameState.gameMode === 'human-vs-cpu' ? faRobot : faUser} class="text-xl" />
-				<Fa icon={faO} class="text-2xl" />
+				<Fa
+					icon={gameState.gameMode === 'human-vs-cpu' ? faRobot : faUser}
+					class="text-lg md:text-xl"
+				/>
+				<Fa icon={faO} class="text-xl md:text-2xl" />
 			</div>
 
 			<!-- CPU Thinking Message -->
@@ -563,9 +566,9 @@
 	</div>
 
 	<!-- Game controls -->
-	<div class="flex gap-4 mt-4 w-full justify-center select-none">
+	<div class="flex gap-6 mt-4 w-full justify-center select-none">
 		<button
-			class="px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
 			onclick={() => (showHowToPlayModal = true)}
 		>
 			<Fa icon={faCircleInfo} class="" />
@@ -573,7 +576,7 @@
 		</button>
 
 		<button
-			class="px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
 			onclick={() => (showSettingsModal = true)}
 		>
 			<Fa icon={faGear} class="" />
@@ -581,7 +584,7 @@
 		</button>
 
 		<button
-			class="px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
 			onclick={resetGame}
 		>
 			<Fa icon={faRotate} class="" />
@@ -594,7 +597,9 @@
 		<div
 			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
 		>
-			<div class=" p-8 rounded-xl shadow-2xl flex flex-col items-center w-full">
+			<div
+				class="p-4 md:p-8 rounded-none md:rounded-xl shadow-2xl flex flex-col items-center w-full h-full md:h-auto md:w-auto m-0 md:m-4"
+			>
 				<div class="mb-10 flex flex-row space-x-4 items-center text-6xl">
 					<Fa icon={faTrophy} class="text-amber-500" />
 					<h2
@@ -641,7 +646,7 @@
 			}}
 		>
 			<div
-				class="bg-zinc-900/95 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-md"
+				class="bg-zinc-900/95 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-md md:max-w-md md:rounded-xl md:p-8 md:w-auto md:h-auto h-full md:max-h-[90vh] overflow-y-auto m-0 md:m-4"
 			>
 				<div class="w-full flex justify-between items-center mb-6">
 					<h2 class="text-2xl font-bold text-white flex items-center gap-2">
@@ -973,7 +978,7 @@
 			}}
 		>
 			<div
-				class="bg-zinc-900/95 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-[50vw] max-h-[90vh] overflow-y-auto"
+				class="bg-zinc-900/95 p-4 md:p-8 rounded-none md:rounded-xl shadow-2xl flex flex-col items-center w-full h-full md:max-w-[50vw] md:h-auto md:max-h-[90vh] overflow-y-auto m-0 md:m-4"
 			>
 				<div class="w-full flex justify-between items-center mb-6">
 					<h2 class="text-3xl font-bold text-white flex items-center gap-2">

@@ -18,7 +18,7 @@
 </script>
 
 <div
-	class="w-full h-full relative rounded-xl transition-all duration-300 ease-in-out aspect-square overflow-hidden p-1 bg-zinc-600"
+	class="w-full h-full relative rounded-xl transition-all duration-300 ease-in-out aspect-square overflow-hidden p-0.5 md:p-1 bg-zinc-600"
 	class:!border-rose-500={winner === 'X'}
 	class:!border-sky-500={winner === 'O'}
 	class:!border-6={winner}
@@ -29,7 +29,7 @@
 	class:opacity-50={winner}
 >
 	<div
-		class="w-full h-full grid grid-cols-3 grid-rows-3 gap-1.5 p-0.5 relative overflow-hidden"
+		class="w-full h-full grid grid-cols-3 grid-rows-3 gap-1 md:gap-1.5 p-0.5 relative overflow-hidden"
 		class:!red-tint={winner === 'X'}
 		class:!blue-tint={winner === 'O'}
 	>
