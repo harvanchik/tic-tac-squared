@@ -759,9 +759,13 @@
 					onCellClick={handleCellClick}
 					lastMove={gameState.lastMove}
 					gameWinner={gameState.winner}
-					isLocalPlayerTurn={gameMode !== 'online-multiplayer' ||
-						!onlinePlayer ||
-						onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}
+					isLocalPlayerTurn={// For human vs human mode, it's always the local player's turn
+					gameMode === 'human-vs-human' ||
+						// For human vs CPU mode, it's only the local player's turn when the current player is X (human)
+						(gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'X') ||
+						// For online multiplayer, use the existing logic
+						(gameMode === 'online-multiplayer' &&
+							(!onlinePlayer || onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)))}
 					{boardDisabled}
 				/>
 			{/each}
