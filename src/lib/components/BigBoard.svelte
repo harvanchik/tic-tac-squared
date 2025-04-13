@@ -1151,9 +1151,10 @@
 									<div class="flex items-center justify-between rounded-lg overflow-hidden">
 										<input
 											type="text"
-											class="w-full py-3 px-3 bg-zinc-800 text-white focus:outline-none font-medium cursor-default rounded-l-lg border-2 border-r-0 border-sky-500 font-mono"
-											class:!tracking-widest={gameCode.length > 0}
-											value="Game Code: {gameCode}"
+											class="w-full py-2.5 px-3 bg-zinc-800 text-white focus:outline-none font-medium cursor-default rounded-l-lg border-2 border-r-0 border-sky-500 !font-mono text-center text-lg pl-10"
+											class:!tracking-[1em]={gameCode?.length > 0}
+											class:font-semibold={gameCode?.length > 0}
+											value={gameCode}
 											readonly
 										/>
 										<button
@@ -1207,10 +1208,11 @@
 									<div class="flex items-center justify-between rounded-lg overflow-hidden">
 										<input
 											type="text"
-											class="w-full p-3 bg-zinc-800 text-white focus:outline-none font-medium rounded-l-lg border-2 border-r-0 border-sky-500 uppercase placeholder:normal-case"
+											class="w-full p-3 bg-zinc-800 text-white focus:outline-none font-medium rounded-l-lg border-2 border-r-0 border-sky-500 uppercase placeholder:normal-case text-center pl-10 selection:bg-sky-500"
 											class:font-mono={enteredGameCode?.length > 0}
-											class:text-semibold={enteredGameCode?.length > 0}
-											class:!tracking-widest={enteredGameCode?.length > 0}
+											class:font-semibold={enteredGameCode?.length > 0}
+											class:!tracking-[1em]={enteredGameCode?.length > 0}
+											class:caret-transparent={enteredGameCode?.length >= 5}
 											autocomplete="off"
 											autocorrect="off"
 											placeholder="Enter Game Code (e.g., RT123)"
@@ -1222,7 +1224,7 @@
 											pattern="[A-Z0-9]{5}"
 										/>
 										<button
-											class="p-3 text-white transition-colors h-full rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem] cursor-disabled"
+											class="p-3 text-white transition-colors h-full rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem] cursor-disabled w-10"
 											class:bg-sky-600={!isJoiningGame && isValidGameCode(enteredGameCode)}
 											class:hover:bg-sky-700={!isJoiningGame && isValidGameCode(enteredGameCode)}
 											class:cursor-pointer={!isJoiningGame && isValidGameCode(enteredGameCode)}
