@@ -133,7 +133,9 @@ export class OnlinePlayer {
 
 				// Check if we already have an active connection
 				if (this.connection && this.connection.open) {
-					console.warn('[OnlinePlayer] A third player tried to join the game. Rejecting connection.');
+					console.warn(
+						'[OnlinePlayer] A third player tried to join the game. Rejecting connection.'
+					);
 
 					// Send a message to the connecting peer about game being full
 					conn.on('open', () => {
@@ -402,7 +404,7 @@ export class OnlinePlayer {
 					// Handle the case when trying to join a game that's already full
 					console.log('[OnlinePlayer] Received game-full message - game already has 2 players');
 					this.updateStatus('error', 'This game already has 2 players');
-					
+
 					// Disconnect since we can't join
 					if (this.connection) {
 						this.connection.close();
