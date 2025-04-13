@@ -903,12 +903,31 @@
 						<div class="grid grid-cols-3 gap-2">
 							<!-- Human vs Human Option -->
 							<button
-								class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class="flex flex-col items-center p-3 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameMode === 'human-vs-human'}
 								class:border-transparent={gameMode !== 'human-vs-human'}
 								class:ring-2={gameMode === 'human-vs-human'}
 								class:ring-blue-500={gameMode === 'human-vs-human'}
-								onclick={() => (gameMode = 'human-vs-human')}
+								class:opacity-50={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:hover:bg-zinc-800={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:cursor-not-allowed={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:cursor-pointer={!(
+									gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')
+								)}
+								onclick={() => {
+									if (
+										!(
+											gameMode === 'online-multiplayer' &&
+											(connectionStatus === 'connected' || connectionStatus === 'waiting')
+										)
+									) {
+										gameMode = 'human-vs-human';
+									}
+								}}
 							>
 								<div
 									class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
@@ -927,12 +946,31 @@
 
 							<!-- Human vs CPU Option -->
 							<button
-								class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class="flex flex-col items-center p-3 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameMode === 'human-vs-cpu'}
 								class:border-transparent={gameMode !== 'human-vs-cpu'}
 								class:ring-2={gameMode === 'human-vs-cpu'}
 								class:ring-blue-500={gameMode === 'human-vs-cpu'}
-								onclick={() => (gameMode = 'human-vs-cpu')}
+								class:opacity-50={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:hover:bg-zinc-800={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:cursor-not-allowed={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:cursor-pointer={!(
+									gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')
+								)}
+								onclick={() => {
+									if (
+										!(
+											gameMode === 'online-multiplayer' &&
+											(connectionStatus === 'connected' || connectionStatus === 'waiting')
+										)
+									) {
+										gameMode = 'human-vs-cpu';
+									}
+								}}
 							>
 								<div
 									class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
@@ -951,7 +989,7 @@
 
 							<!-- Online Multiplayer Option -->
 							<button
-								class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class="flex flex-col items-center p-3 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameMode === 'online-multiplayer'}
 								class:border-transparent={gameMode !== 'online-multiplayer'}
 								class:ring-2={gameMode === 'online-multiplayer'}
@@ -1076,8 +1114,8 @@
 										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 select-none w-full border-2 border-transparent"
 										onclick={disconnectOnlineGame}
 									>
-										<div class="flex items-center text-rose-500/90 hover:text-rose-600">
-											<Fa icon={faRightFromBracket} class="text-lg mr-2" />
+										<div class="flex items-center">
+											<Fa icon={faRightFromBracket} class="text-lg mr-2 text-rose-500/90" />
 											<span class="font-medium">Leave Current Game</span>
 										</div>
 									</button>
@@ -1127,20 +1165,26 @@
 								{:else}
 									<!-- Join Game Button -->
 									<button
-										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none w-full"
+										class="flex items-center justify-between p-3 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none w-full"
 										class:border-blue-500={connectionStatus === 'connecting'}
 										class:border-transparent={connectionStatus !== 'connecting'}
+										class:opacity-50={connectionStatus === 'connected'}
+										class:hover:bg-zinc-800={connectionStatus === 'connected'}
+										class:cursor-not-allowed={connectionStatus === 'connected'}
+										class:cursor-pointer={connectionStatus !== 'connected'}
 										onclick={() => {
-											// If already hosting a game, cancel it first
-											if (connectionStatus === 'waiting' && onlinePlayer) {
-												onlinePlayer.disconnect();
-												onlinePlayer = null;
-												connectionStatus = 'disconnected';
-												gameCode = '';
-												isWaitingForOpponent = false;
+											if (connectionStatus !== 'connected') {
+												// If already hosting a game, cancel it first
+												if (connectionStatus === 'waiting' && onlinePlayer) {
+													onlinePlayer.disconnect();
+													onlinePlayer = null;
+													connectionStatus = 'disconnected';
+													gameCode = '';
+													isWaitingForOpponent = false;
+												}
+												// Then show the game code input
+												showGameCodeInput = true;
 											}
-											// Then show the game code input
-											showGameCodeInput = true;
 										}}
 									>
 										<div class="flex items-center">
@@ -1159,12 +1203,31 @@
 						<div class="grid grid-cols-2 gap-2">
 							<!-- Standard Rules Option -->
 							<button
-								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class="flex flex-col items-center p-4 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameRules === 'standard'}
 								class:border-transparent={gameRules !== 'standard'}
 								class:ring-2={gameRules === 'standard'}
 								class:ring-blue-500={gameRules === 'standard'}
-								onclick={() => (gameRules = 'standard')}
+								class:opacity-50={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:hover:bg-zinc-800={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:cursor-not-allowed={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:cursor-pointer={!(
+									gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')
+								)}
+								onclick={() => {
+									if (
+										!(
+											gameMode === 'online-multiplayer' &&
+											(connectionStatus === 'connected' || connectionStatus === 'waiting')
+										)
+									) {
+										gameRules = 'standard';
+									}
+								}}
 							>
 								<div
 									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
@@ -1181,12 +1244,31 @@
 
 							<!-- Free Play Option -->
 							<button
-								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class="flex flex-col items-center p-4 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
 								class:border-blue-500={gameRules === 'free-play'}
 								class:border-transparent={gameRules !== 'free-play'}
 								class:ring-2={gameRules === 'free-play'}
 								class:ring-blue-500={gameRules === 'free-play'}
-								onclick={() => (gameRules = 'free-play')}
+								class:opacity-50={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:hover:bg-zinc-800={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:cursor-not-allowed={gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
+								class:cursor-pointer={!(
+									gameMode === 'online-multiplayer' &&
+									(connectionStatus === 'connected' || connectionStatus === 'waiting')
+								)}
+								onclick={() => {
+									if (
+										!(
+											gameMode === 'online-multiplayer' &&
+											(connectionStatus === 'connected' || connectionStatus === 'waiting')
+										)
+									) {
+										gameRules = 'free-play';
+									}
+								}}
 							>
 								<div
 									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
@@ -1204,26 +1286,39 @@
 
 				<!-- Action buttons -->
 				<div class="w-full flex flex-row gap-3">
-					<button
-						class="w-full px-3 py-3 border-2 border-zinc-600 hover:bg-zinc-600 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
-						onclick={() => {
-							// Apply settings and start a new game
-							resetGame();
-							showSettingsModal = false;
-						}}
-					>
-						Apply & New Game
-					</button>
-					<button
-						class="w-full px-3 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
-						onclick={() => {
-							// Apply settings without resetting
-							applySettings();
-							showSettingsModal = false;
-						}}
-					>
-						Apply Settings
-					</button>
+					{#if gameMode === 'online-multiplayer' && connectionStatus === 'connected'}
+						<!-- Just show Resume Game button when in an active online game -->
+						<button
+							class="w-full px-3 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+							onclick={() => {
+								showSettingsModal = false;
+							}}
+						>
+							Resume Game
+						</button>
+					{:else}
+						<!-- Regular buttons for non-online games or when not connected -->
+						<button
+							class="w-full px-3 py-3 border-2 border-zinc-600 hover:bg-zinc-600 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+							onclick={() => {
+								// Apply settings and start a new game
+								resetGame();
+								showSettingsModal = false;
+							}}
+						>
+							Apply & New Game
+						</button>
+						<button
+							class="w-full px-3 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+							onclick={() => {
+								// Apply settings without resetting
+								applySettings();
+								showSettingsModal = false;
+							}}
+						>
+							Apply Settings
+						</button>
+					{/if}
 				</div>
 			</div>
 		</div>
