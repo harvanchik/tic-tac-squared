@@ -87,6 +87,9 @@
 	// For tracking if the user intentionally forfeited to prevent showing disconnect message
 	let userForfeited = $state(false);
 
+	// For tracking when a user is attempting to join a game
+	let isJoiningGame = $state(false);
+
 	// Function to save modal states to localStorage
 	function saveModalState(modalType: 'settings' | 'howToPlay', isOpen: boolean) {
 		if (typeof window !== 'undefined') {
@@ -316,8 +319,10 @@
 		}
 
 		try {
+			// Set connection status and show spinner
 			connectionStatus = 'connecting';
 			connectionError = '';
+			isJoiningGame = true;
 
 			// Format entered code to uppercase
 			const formattedCode = enteredGameCode.toUpperCase();
@@ -334,10 +339,16 @@
 
 			// Set player role as guest (O)
 			gameState.onlineStatus = 'guest';
+
+			// Reset the game code input UI to show the standard button
+			showGameCodeInput = false;
 		} catch (error) {
 			console.error('Failed to join game:', error);
 			connectionError = 'Failed to join game. Please check the game code and try again.';
 			connectionStatus = 'error';
+		} finally {
+			// Reset the joining state
+			isJoiningGame = false;
 		}
 	}
 
@@ -392,6 +403,24 @@
 		gameState = game.getState();
 
 		// Keep settings menu open for the user who forfeited
+		showSettingsModal = true;
+	}
+
+	// Function to cancel a game being hosted
+	function cancelHostedGame() {
+		if (onlinePlayer) {
+			// Disconnect the player
+			onlinePlayer.disconnect();
+			onlinePlayer = null;
+		}
+
+		// Reset connection states
+		connectionStatus = 'disconnected';
+		gameCode = '';
+		isWaitingForOpponent = false;
+		connectionError = '';
+
+		// Keep the settings modal open
 		showSettingsModal = true;
 	}
 
@@ -694,6 +723,22 @@
 			}
 		}, 50);
 	}
+
+	// Function to handle keydown events on the game code input
+	function handleGameCodeInputKeydown(event: KeyboardEvent) {
+		// if key is non-alphanumeric, prevent it
+		if (!/^[a-zA-Z0-9]$/.test(event.key)) {
+			event.preventDefault();
+			return;
+		}
+		// Check if the Enter key was pressed and we're not already joining
+		if (event.key === 'Enter' && !isJoiningGame) {
+			// Prevent default form submission behavior
+			event.preventDefault();
+			// Trigger the joinOnlineGame function
+			joinOnlineGame();
+		}
+	}
 </script>
 
 <div class="flex flex-col items-center gap-4 w-full max-w-[550px] mx-auto relative">
@@ -904,10 +949,10 @@
 							<!-- Human vs Human Option -->
 							<button
 								class="flex flex-col items-center p-3 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-								class:border-blue-500={gameMode === 'human-vs-human'}
+								class:border-sky-500={gameMode === 'human-vs-human'}
 								class:border-transparent={gameMode !== 'human-vs-human'}
 								class:ring-2={gameMode === 'human-vs-human'}
-								class:ring-blue-500={gameMode === 'human-vs-human'}
+								class:ring-sky-500={gameMode === 'human-vs-human'}
 								class:opacity-50={gameMode === 'online-multiplayer' &&
 									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
 								class:hover:bg-zinc-800={gameMode === 'online-multiplayer' &&
@@ -933,7 +978,7 @@
 									class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
 								>
 									{#if gameMode === 'human-vs-human'}
-										<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										<div class="w-2 h-2 rounded-full bg-sky-500"></div>
 									{/if}
 								</div>
 								<div class="flex items-center gap-1 justify-center mb-1">
@@ -947,10 +992,10 @@
 							<!-- Human vs CPU Option -->
 							<button
 								class="flex flex-col items-center p-3 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-								class:border-blue-500={gameMode === 'human-vs-cpu'}
+								class:border-sky-500={gameMode === 'human-vs-cpu'}
 								class:border-transparent={gameMode !== 'human-vs-cpu'}
 								class:ring-2={gameMode === 'human-vs-cpu'}
-								class:ring-blue-500={gameMode === 'human-vs-cpu'}
+								class:ring-sky-500={gameMode === 'human-vs-cpu'}
 								class:opacity-50={gameMode === 'online-multiplayer' &&
 									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
 								class:hover:bg-zinc-800={gameMode === 'online-multiplayer' &&
@@ -976,7 +1021,7 @@
 									class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
 								>
 									{#if gameMode === 'human-vs-cpu'}
-										<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										<div class="w-2 h-2 rounded-full bg-sky-500"></div>
 									{/if}
 								</div>
 								<div class="flex items-center gap-1 justify-center mb-1">
@@ -990,17 +1035,17 @@
 							<!-- Online Multiplayer Option -->
 							<button
 								class="flex flex-col items-center p-3 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-								class:border-blue-500={gameMode === 'online-multiplayer'}
+								class:border-sky-500={gameMode === 'online-multiplayer'}
 								class:border-transparent={gameMode !== 'online-multiplayer'}
 								class:ring-2={gameMode === 'online-multiplayer'}
-								class:ring-blue-500={gameMode === 'online-multiplayer'}
+								class:ring-sky-500={gameMode === 'online-multiplayer'}
 								onclick={() => (gameMode = 'online-multiplayer')}
 							>
 								<div
 									class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
 								>
 									{#if gameMode === 'online-multiplayer'}
-										<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										<div class="w-2 h-2 rounded-full bg-sky-500"></div>
 									{/if}
 								</div>
 								<div class="flex items-center gap-1 justify-center mb-1">
@@ -1021,17 +1066,17 @@
 								<!-- Easy Difficulty Option -->
 								<button
 									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-									class:border-blue-500={cpuDifficulty === 'easy'}
+									class:border-sky-500={cpuDifficulty === 'easy'}
 									class:border-transparent={cpuDifficulty !== 'easy'}
 									class:ring-2={cpuDifficulty === 'easy'}
-									class:ring-blue-500={cpuDifficulty === 'easy'}
+									class:ring-sky-500={cpuDifficulty === 'easy'}
 									onclick={() => (cpuDifficulty = 'easy')}
 								>
 									<div
 										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
 									>
 										{#if cpuDifficulty === 'easy'}
-											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+											<div class="w-2 h-2 rounded-full bg-sky-500"></div>
 										{/if}
 									</div>
 									<p class="font-medium text-white text-center text-sm">Easy</p>
@@ -1041,17 +1086,17 @@
 								<!-- Moderate Difficulty Option -->
 								<button
 									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-									class:border-blue-500={cpuDifficulty === 'moderate'}
+									class:border-sky-500={cpuDifficulty === 'moderate'}
 									class:border-transparent={cpuDifficulty !== 'moderate'}
 									class:ring-2={cpuDifficulty === 'moderate'}
-									class:ring-blue-500={cpuDifficulty === 'moderate'}
+									class:ring-sky-500={cpuDifficulty === 'moderate'}
 									onclick={() => (cpuDifficulty = 'moderate')}
 								>
 									<div
 										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
 									>
 										{#if cpuDifficulty === 'moderate'}
-											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+											<div class="w-2 h-2 rounded-full bg-sky-500"></div>
 										{/if}
 									</div>
 									<p class="font-medium text-white text-center text-sm">Moderate</p>
@@ -1061,17 +1106,17 @@
 								<!-- Expert Difficulty Option -->
 								<button
 									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-									class:border-blue-500={cpuDifficulty === 'expert'}
+									class:border-sky-500={cpuDifficulty === 'expert'}
 									class:border-transparent={cpuDifficulty !== 'expert'}
 									class:ring-2={cpuDifficulty === 'expert'}
-									class:ring-blue-500={cpuDifficulty === 'expert'}
+									class:ring-sky-500={cpuDifficulty === 'expert'}
 									onclick={() => (cpuDifficulty = 'expert')}
 								>
 									<div
 										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
 									>
 										{#if cpuDifficulty === 'expert'}
-											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+											<div class="w-2 h-2 rounded-full bg-sky-500"></div>
 										{/if}
 									</div>
 									<p class="font-medium text-white text-center text-sm">Expert</p>
@@ -1092,14 +1137,14 @@
 									<div class="flex items-center justify-between rounded-lg overflow-hidden">
 										<input
 											type="text"
-											class="w-full py-3 px-3 bg-zinc-800 text-white focus:outline-none font-medium cursor-default rounded-l-lg border-2 border-r-0 border-blue-500"
+											class="w-full py-3 px-3 bg-zinc-800 text-white focus:outline-none font-medium cursor-default rounded-l-lg border-2 border-r-0 border-sky-500"
 											value="Game Code: {gameCode}"
 											readonly
 										/>
 										<button
-											class="py-3 px-3 h-full transition-colors rounded-l-none rounded-r-lg border-2 border-l-0 border-blue-500 min-h-[3.25rem]"
-											class:bg-blue-600={!isCodeCopied}
-											class:hover:bg-blue-700={!isCodeCopied}
+											class="py-3 px-3 h-full transition-colors rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem]"
+											class:bg-sky-600={!isCodeCopied}
+											class:hover:bg-sky-700={!isCodeCopied}
 											class:bg-green-600={isCodeCopied}
 											class:hover:bg-green-700={isCodeCopied}
 											class:text-white={true}
@@ -1123,7 +1168,7 @@
 									<!-- Create Game Button -->
 									<button
 										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none w-full"
-										class:border-blue-500={connectionStatus === 'connecting'}
+										class:border-sky-500={connectionStatus === 'connecting'}
 										class:border-transparent={connectionStatus !== 'connecting'}
 										onclick={() => {
 											// Reset join game input if active
@@ -1141,32 +1186,52 @@
 									</button>
 								{/if}
 
-								<!-- Join Game Section -->
+								<!-- Join Game or Cancel Game Section -->
 								{#if showGameCodeInput}
 									<!-- Game Code Input - Shown when joining a game -->
 									<div class="flex items-center justify-between rounded-lg overflow-hidden">
 										<input
 											type="text"
-											class="w-full p-3 bg-zinc-800 text-white focus:outline-none font-medium rounded-l-lg border-2 border-r-0 border-blue-500"
-											placeholder="Enter Game Code"
+											class="w-full p-3 bg-zinc-800 text-white focus:outline-none font-medium rounded-l-lg border-2 border-r-0 border-sky-500 uppercase placeholder:normal-case"
+											placeholder="Enter Game Code (e.g., RT123)"
 											bind:value={enteredGameCode}
 											use:autoFocus
+											onkeydown={handleGameCodeInputKeydown}
+											disabled={isJoiningGame}
+											maxlength="5"
+											pattern="[A-Z0-9]{5}"
 										/>
 										<button
-											class="p-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors h-full rounded-l-none rounded-r-lg border-2 border-l-0 border-blue-500 min-h-[3.25rem]"
+											class="p-3 bg-sky-600 hover:bg-sky-700 text-white transition-colors h-full rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem]"
 											onclick={joinOnlineGame}
+											disabled={isJoiningGame}
 										>
-											<Fa icon={faAngleRight} />
+											{#if isJoiningGame}
+												<Fa icon={faSpinner} class="animate-spin" />
+											{:else}
+												<Fa icon={faAngleRight} />
+											{/if}
 										</button>
 									</div>
 									{#if connectionError}
-										<p class="text-red-500 text-xs text-center mt-1">{connectionError}</p>
+										<p class="text-rose-500 text-xs text-center mt-1">{connectionError}</p>
 									{/if}
+								{:else if connectionStatus === 'waiting'}
+									<!-- Cancel Game Button - Shown only when hosting and waiting for an opponent -->
+									<button
+										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 select-none w-full border-2 border-rose-500"
+										onclick={cancelHostedGame}
+									>
+										<div class="flex items-center">
+											<Fa icon={faTimes} class="text-lg mr-2 text-rose-500" />
+											<span class="font-medium text-white">Cancel Game</span>
+										</div>
+									</button>
 								{:else}
-									<!-- Join Game Button -->
+									<!-- Join Game Button - Shown in normal state (not hosting, not joining) -->
 									<button
 										class="flex items-center justify-between p-3 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none w-full"
-										class:border-blue-500={connectionStatus === 'connecting'}
+										class:border-sky-500={connectionStatus === 'connecting'}
 										class:border-transparent={connectionStatus !== 'connecting'}
 										class:opacity-50={connectionStatus === 'connected'}
 										class:hover:bg-zinc-800={connectionStatus === 'connected'}
@@ -1174,15 +1239,8 @@
 										class:cursor-pointer={connectionStatus !== 'connected'}
 										onclick={() => {
 											if (connectionStatus !== 'connected') {
-												// If already hosting a game, cancel it first
-												if (connectionStatus === 'waiting' && onlinePlayer) {
-													onlinePlayer.disconnect();
-													onlinePlayer = null;
-													connectionStatus = 'disconnected';
-													gameCode = '';
-													isWaitingForOpponent = false;
-												}
-												// Then show the game code input
+												
+												// Show the game code input
 												showGameCodeInput = true;
 											}
 										}}
@@ -1204,10 +1262,10 @@
 							<!-- Standard Rules Option -->
 							<button
 								class="flex flex-col items-center p-4 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-								class:border-blue-500={gameRules === 'standard'}
+								class:border-sky-500={gameRules === 'standard'}
 								class:border-transparent={gameRules !== 'standard'}
 								class:ring-2={gameRules === 'standard'}
-								class:ring-blue-500={gameRules === 'standard'}
+								class:ring-sky-500={gameRules === 'standard'}
 								class:opacity-50={gameMode === 'online-multiplayer' &&
 									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
 								class:hover:bg-zinc-800={gameMode === 'online-multiplayer' &&
@@ -1233,7 +1291,7 @@
 									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
 								>
 									{#if gameRules === 'standard'}
-										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+										<div class="w-3 h-3 rounded-full bg-sky-500"></div>
 									{/if}
 								</div>
 								<p class="font-medium text-white text-center">Standard</p>
@@ -1245,10 +1303,10 @@
 							<!-- Free Play Option -->
 							<button
 								class="flex flex-col items-center p-4 rounded-lg transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-								class:border-blue-500={gameRules === 'free-play'}
+								class:border-sky-500={gameRules === 'free-play'}
 								class:border-transparent={gameRules !== 'free-play'}
 								class:ring-2={gameRules === 'free-play'}
-								class:ring-blue-500={gameRules === 'free-play'}
+								class:ring-sky-500={gameRules === 'free-play'}
 								class:opacity-50={gameMode === 'online-multiplayer' &&
 									(connectionStatus === 'connected' || connectionStatus === 'waiting')}
 								class:hover:bg-zinc-800={gameMode === 'online-multiplayer' &&
@@ -1274,7 +1332,7 @@
 									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
 								>
 									{#if gameRules === 'free-play'}
-										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+										<div class="w-3 h-3 rounded-full bg-sky-500"></div>
 									{/if}
 								</div>
 								<p class="font-medium text-white text-center">Free Play</p>
@@ -1289,7 +1347,7 @@
 					{#if gameMode === 'online-multiplayer' && connectionStatus === 'connected'}
 						<!-- Just show Resume Game button when in an active online game -->
 						<button
-							class="w-full px-3 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+							class="w-full px-3 py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
 							onclick={() => {
 								showSettingsModal = false;
 							}}
@@ -1309,7 +1367,7 @@
 							Apply & New Game
 						</button>
 						<button
-							class="w-full px-3 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+							class="w-full px-3 py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
 							onclick={() => {
 								// Apply settings without resetting
 								applySettings();
@@ -1367,7 +1425,7 @@
 						<h3 class="text-lg font-semibold mb-2">How Moves Work</h3>
 						<ul class="list-disc list-inside space-y-2 text-gray-300">
 							<li>
-								<span class="font-semibold text-blue-400">Standard Mode:</span> Your move determines
+								<span class="font-semibold text-sky-400">Standard Mode:</span> Your move determines
 								where your opponent plays next. If you play in the top-right cell of any small board,
 								your opponent must play in the top-right small board.
 							</li>
@@ -1377,7 +1435,7 @@
 								available board.
 							</li>
 							<li>
-								<span class="font-semibold text-blue-400">Free Play Mode:</span> Players can move in
+								<span class="font-semibold text-sky-400">Free Play Mode:</span> Players can move in
 								any valid board at any time.
 							</li>
 						</ul>
@@ -1397,7 +1455,7 @@
 
 					<!-- Button to close modal -->
 					<button
-						class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors mt-6 font-semibold cursor-pointer"
+						class="w-full px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-md transition-colors mt-6 font-semibold cursor-pointer"
 						onclick={() => (showHowToPlayModal = false)}
 					>
 						Got It!
