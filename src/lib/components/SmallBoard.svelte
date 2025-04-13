@@ -2,7 +2,16 @@
 	import Cell from './Cell.svelte';
 
 	// Props
-	let { boardIndex, board, isActive, onCellClick, winner, lastMove, gameWinner } = $props<{
+	let {
+		boardIndex,
+		board,
+		isActive,
+		onCellClick,
+		winner,
+		lastMove,
+		gameWinner,
+		isLocalPlayerTurn = true
+	} = $props<{
 		boardIndex: number; // Index from 0-8 for the board
 		board: (string | null)[][];
 		isActive: boolean;
@@ -14,6 +23,7 @@
 			player: string;
 		} | null;
 		gameWinner: string | null; // New prop to track overall game winner
+		isLocalPlayerTurn?: boolean; // Added property to indicate if it's the local player's turn in online multiplayer
 	}>();
 </script>
 
@@ -45,6 +55,7 @@
 					isLastMove={lastMove !== null &&
 						lastMove.boardIndex === boardIndex &&
 						lastMove.cellIndex === cellIndex}
+					{isLocalPlayerTurn}
 				/>
 			{/each}
 		{/each}

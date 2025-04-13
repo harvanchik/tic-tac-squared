@@ -646,6 +646,9 @@
 					onCellClick={handleCellClick}
 					lastMove={gameState.lastMove}
 					gameWinner={gameState.winner}
+					isLocalPlayerTurn={gameMode !== 'online-multiplayer' ||
+						!onlinePlayer ||
+						onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}
 				/>
 			{/each}
 		{/each}
