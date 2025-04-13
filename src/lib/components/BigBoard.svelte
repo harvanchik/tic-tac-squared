@@ -1151,7 +1151,8 @@
 									<div class="flex items-center justify-between rounded-lg overflow-hidden">
 										<input
 											type="text"
-											class="w-full py-3 px-3 bg-zinc-800 text-white focus:outline-none font-medium cursor-default rounded-l-lg border-2 border-r-0 border-sky-500"
+											class="w-full py-3 px-3 bg-zinc-800 text-white focus:outline-none font-medium cursor-default rounded-l-lg border-2 border-r-0 border-sky-500 font-mono"
+											class:!tracking-widest={gameCode.length > 0}
 											value="Game Code: {gameCode}"
 											readonly
 										/>
@@ -1207,6 +1208,11 @@
 										<input
 											type="text"
 											class="w-full p-3 bg-zinc-800 text-white focus:outline-none font-medium rounded-l-lg border-2 border-r-0 border-sky-500 uppercase placeholder:normal-case"
+											class:font-mono={enteredGameCode?.length > 0}
+											class:text-semibold={enteredGameCode?.length > 0}
+											class:!tracking-widest={enteredGameCode?.length > 0}
+											autocomplete="off"
+											autocorrect="off"
 											placeholder="Enter Game Code (e.g., RT123)"
 											bind:value={enteredGameCode}
 											use:autoFocus

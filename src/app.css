@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap');
+
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
@@ -9,4 +11,10 @@
 	@apply !bg-sky-800/70;
 }
 
-.
+.font-mono {
+	font-family:
+		'Roboto Mono', 'IBM Plex Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+		'Courier New', monospace;
+	/* Slightly increasing letter spacing for better readability of game codes */
+	letter-spacing: 0.05em;
+}
