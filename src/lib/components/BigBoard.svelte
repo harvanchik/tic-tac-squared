@@ -1156,11 +1156,12 @@
 											readonly
 										/>
 										<button
-											class="py-3 px-3 h-full transition-colors rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem] text-white"
+											class="py-3 px-3 h-full transition-colors duration-200 rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem] text-white"
 											class:bg-sky-600={!isCodeCopied}
 											class:hover:bg-sky-700={!isCodeCopied}
 											class:bg-green-600={isCodeCopied}
-											class:hover:bg-green-700={isCodeCopied}
+											class:cursor-pointer={!isCodeCopied}
+											disabled={isCodeCopied}
 											onclick={copyGameCodeToClipboard}
 										>
 											<Fa icon={isCodeCopied ? faCheck : faCopy} />
