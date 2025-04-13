@@ -1,0 +1,1171 @@
+<script lang="ts">
+	import SmallBoard from './SmallBoard.svelte';
+	import { createGameState, loadGameState, type GameState } from '../game/GameState';
+	import { OnlinePlayer, type ConnectionStatus } from '../game/OnlinePlayer';
+	import { onMount } from 'svelte';
+	import Fa from 'svelte-fa';
+	import {
+		faXmark,
+		faO,
+		faUser,
+		faCircleInfo,
+		faGear,
+		faRotate,
+		faTrophy,
+		faEye,
+		faTimes,
+		faRobot,
+		faBrain,
+		faSpinner,
+		faGlobe,
+		faCopy,
+		faCheck,
+		faAngleRight
+	} from '@fortawesome/free-solid-svg-icons';
+
+	// Constants for localStorage keys
+	const GAME_STORAGE_KEY = 'tic-tac-squared-game-state'; // This matches the key in GameState.ts
+	const SETTINGS_MODAL_KEY = 'tic-tac-squared-settings-modal';
+	const HOW_TO_PLAY_MODAL_KEY = 'tic-tac-squared-how-to-play-modal';
+	const GAME_MODE_KEY = 'tic-tac-squared-game-mode';
+	const CPU_DIFFICULTY_KEY = 'tic-tac-squared-cpu-difficulty';
+	const GAME_RULES_KEY = 'tic-tac-squared-game-rules';
+
+	// Create a default empty game state to avoid undefined errors during SSR
+	const createEmptyBoards = () => {
+		return Array(9)
+			.fill(null)
+			.map(() =>
+				Array(3)
+					.fill(null)
+					.map(() => Array(3).fill(null))
+			);
+	};
+
+	const createEmptyBoardWinners = () => {
+		return Array(9).fill(null);
+	};
+
+	// Initialize with default empty state to prevent SSR errors
+	let game = createGameState();
+	let gameState = $state<GameState>({
+		boards: createEmptyBoards(),
+		boardWinners: createEmptyBoardWinners(),
+		currentPlayer: 'X',
+		activeBoard: null,
+		winner: null,
+		isDraw: false,
+		lastMove: null
+	});
+
+	let isInitialized = $state(false);
+	// track if we should show the victory overlay or not
+	let showVictoryOverlay = $state(false);
+	// Track when CPU is thinking
+	let isCpuThinking = $state(false);
+
+	// Settings state variables
+	let showSettingsModal = $state(false);
+	let showHowToPlayModal = $state(false);
+	let gameMode = $state<'human-vs-human' | 'human-vs-cpu' | 'online-multiplayer'>('human-vs-human');
+	let gameRules = $state<'standard' | 'free-play'>('standard');
+	let cpuDifficulty = $state<'easy' | 'moderate' | 'expert'>('moderate');
+
+	// Online multiplayer state variables
+	let onlinePlayer: OnlinePlayer | null = $state(null);
+	let connectionStatus = $state<ConnectionStatus>('disconnected');
+	let gameCode = $state('');
+	let enteredGameCode = $state('');
+	let showGameCodeInput = $state(false);
+	let isCodeCopied = $state(false);
+	let connectionError = $state('');
+	let isWaitingForOpponent = $state(false);
+
+	// Function to save modal states to localStorage
+	function saveModalState(modalType: 'settings' | 'howToPlay', isOpen: boolean) {
+		if (typeof window !== 'undefined') {
+			try {
+				const key = modalType === 'settings' ? SETTINGS_MODAL_KEY : HOW_TO_PLAY_MODAL_KEY;
+				localStorage.setItem(key, JSON.stringify({ isOpen }));
+			} catch (error) {
+				console.error('Failed to save modal state:', error);
+			}
+		}
+	}
+
+	// Function to load modal states from localStorage
+	function loadModalState(modalType: 'settings' | 'howToPlay'): boolean {
+		if (typeof window !== 'undefined') {
+			try {
+				const key = modalType === 'settings' ? SETTINGS_MODAL_KEY : HOW_TO_PLAY_MODAL_KEY;
+				const savedState = localStorage.getItem(key);
+				if (savedState) {
+					const parsed = JSON.parse(savedState);
+					return parsed.isOpen;
+				}
+			} catch (error) {
+				console.error('Failed to load modal state:', error);
+			}
+		}
+		return false;
+	}
+
+	// Function to save game settings to localStorage
+	function saveGameSettings() {
+		if (typeof window !== 'undefined') {
+			try {
+				// Save game mode
+				localStorage.setItem(GAME_MODE_KEY, gameMode);
+
+				// Save CPU difficulty
+				localStorage.setItem(CPU_DIFFICULTY_KEY, cpuDifficulty);
+
+				// Save game rules
+				localStorage.setItem(GAME_RULES_KEY, gameRules);
+
+				console.log('[BigBoard] Game settings saved to localStorage');
+			} catch (error) {
+				console.error('Failed to save game settings:', error);
+			}
+		}
+	}
+
+	// Function to load game settings from localStorage
+	function loadGameSettings() {
+		if (typeof window !== 'undefined') {
+			try {
+				// Load game mode
+				const savedGameMode = localStorage.getItem(GAME_MODE_KEY);
+				if (savedGameMode) {
+					gameMode = savedGameMode as 'human-vs-human' | 'human-vs-cpu' | 'online-multiplayer';
+				}
+
+				// Load CPU difficulty
+				const savedCpuDifficulty = localStorage.getItem(CPU_DIFFICULTY_KEY);
+				if (savedCpuDifficulty) {
+					cpuDifficulty = savedCpuDifficulty as 'easy' | 'moderate' | 'expert';
+				}
+
+				// Load game rules
+				const savedGameRules = localStorage.getItem(GAME_RULES_KEY);
+				if (savedGameRules) {
+					gameRules = savedGameRules as 'standard' | 'free-play';
+				}
+
+				console.log('[BigBoard] Game settings loaded from localStorage');
+			} catch (error) {
+				console.error('Failed to load game settings:', error);
+			}
+		}
+	}
+
+	// Initialize OnlinePlayer with callbacks
+	function initializeOnlinePlayer() {
+		onlinePlayer = new OnlinePlayer({
+			onStatusChange: (status, error) => {
+				console.log(
+					`[BigBoard] Connection status changed: ${status}`,
+					error ? `Error: ${error}` : ''
+				);
+				connectionStatus = status;
+				if (error) {
+					connectionError = error;
+				}
+
+				// Update UI based on connection status
+				if (status === 'waiting') {
+					isWaitingForOpponent = true;
+				} else if (status === 'connected') {
+					// Don't hide waiting indicator yet, wait for game-start message
+					console.log('[BigBoard] Connected to peer, awaiting game start');
+				} else if (status === 'disconnected' || status === 'error') {
+					isWaitingForOpponent = false;
+				}
+			},
+			onRemoteMove: (boardIndex, cellIndex) => {
+				console.log(`[BigBoard] Received remote move: board ${boardIndex}, cell ${cellIndex}`);
+
+				// Make the remote player's move on the local board
+				game.makeMove(boardIndex, cellIndex);
+				gameState = game.getState();
+
+				console.log(`[BigBoard] After remote move, current player is: ${gameState.currentPlayer}`);
+				console.log(`[BigBoard] Local player is: ${onlinePlayer?.getLocalPlayer()}`);
+				console.log(
+					`[BigBoard] Is local turn: ${onlinePlayer?.isLocalPlayerTurn(gameState.currentPlayer)}`
+				);
+
+				// Check for victory
+				if (gameState.winner) {
+					showVictoryOverlay = true;
+				}
+			},
+			onRemoteSettings: (rules) => {
+				// Apply received game rules
+				gameRules = rules;
+				game.setGameRules(rules);
+				gameState = game.getState();
+			},
+			onGameStart: () => {
+				// Game is ready to start - both players are connected
+				console.log('[BigBoard] Game starting! Player roles assigned.');
+				isWaitingForOpponent = false; // Now we can hide the waiting indicator
+				showSettingsModal = false;
+
+				// Update UI with player roles
+				if (onlinePlayer) {
+					const role = onlinePlayer.getRole();
+					const localPlayer = onlinePlayer.getLocalPlayer();
+					console.log(`[BigBoard] You are playing as ${role} (${localPlayer})`);
+
+					// Set initial player turn state
+					gameState = game.getState();
+					console.log(`[BigBoard] Current player: ${gameState.currentPlayer}`);
+					console.log(
+						`[BigBoard] Is local turn: ${onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}`
+					);
+				}
+			},
+			onPlayerDisconnect: () => {
+				// Handle opponent disconnection (forfeit)
+				console.log('[BigBoard] Opponent disconnected - you win by forfeit');
+				if (connectionStatus === 'connected') {
+					// Set victory for local player if game was in progress
+					showVictoryOverlay = true;
+					// Revert to human vs human mode
+					gameMode = 'human-vs-human';
+					game.setGameMode('human-vs-human');
+					gameState = game.getState();
+				}
+			}
+		});
+	}
+
+	// Create a new online game as host
+	async function createOnlineGame() {
+		if (!onlinePlayer) {
+			initializeOnlinePlayer();
+		}
+
+		try {
+			connectionStatus = 'connecting';
+			connectionError = '';
+
+			// Create a new game and get the game code
+			gameCode = await onlinePlayer!.createGame();
+
+			// Reset game state for a fresh start
+			game.resetGame({
+				rules: gameRules,
+				mode: 'online-multiplayer'
+			});
+			gameState = game.getState();
+
+			// Set player role as host (X)
+			gameState.onlineStatus = 'host';
+
+			// Now waiting for an opponent to join
+			isWaitingForOpponent = true;
+		} catch (error) {
+			console.error('Failed to create online game:', error);
+			connectionError = 'Failed to create game. Please try again.';
+			connectionStatus = 'error';
+		}
+	}
+
+	// Join an existing online game using a game code
+	async function joinOnlineGame() {
+		if (!enteredGameCode) {
+			connectionError = 'Please enter a valid game code';
+			return;
+		}
+
+		if (!onlinePlayer) {
+			initializeOnlinePlayer();
+		}
+
+		try {
+			connectionStatus = 'connecting';
+			connectionError = '';
+
+			// Format entered code to uppercase
+			const formattedCode = enteredGameCode.toUpperCase();
+
+			// Join the game with the provided code
+			await onlinePlayer!.joinGame(formattedCode);
+
+			// Reset game state for a fresh start
+			game.resetGame({
+				rules: gameRules,
+				mode: 'online-multiplayer'
+			});
+			gameState = game.getState();
+
+			// Set player role as guest (O)
+			gameState.onlineStatus = 'guest';
+		} catch (error) {
+			console.error('Failed to join game:', error);
+			connectionError = 'Failed to join game. Please check the game code and try again.';
+			connectionStatus = 'error';
+		}
+	}
+
+	// Copy game code to clipboard
+	function copyGameCodeToClipboard() {
+		if (typeof navigator !== 'undefined' && gameCode) {
+			try {
+				navigator.clipboard.writeText(gameCode);
+				// Visual indication - turn the button green temporarily
+				isCodeCopied = true;
+				setTimeout(() => {
+					isCodeCopied = false;
+				}, 2000);
+			} catch (error) {
+				console.error('Failed to copy game code:', error);
+			}
+		}
+	}
+
+	// Disconnect from online game
+	function disconnectOnlineGame() {
+		if (onlinePlayer) {
+			onlinePlayer.disconnect();
+			onlinePlayer = null;
+		}
+
+		// Reset game mode
+		gameMode = 'human-vs-human';
+		game.setGameMode('human-vs-human');
+
+		// Reset state
+		connectionStatus = 'disconnected';
+		gameCode = '';
+		enteredGameCode = '';
+		isWaitingForOpponent = false;
+		connectionError = '';
+
+		// Update game state
+		gameState = game.getState();
+	}
+
+	// Handle cell click
+	function handleCellClick(boardIndex: number, cellIndex: number) {
+		if (!isInitialized) return;
+
+		// Don't allow clicks while CPU is thinking
+		if (isCpuThinking) return;
+
+		// For online multiplayer, only allow moves on your turn
+		if (gameMode === 'online-multiplayer' && onlinePlayer) {
+			console.log('[BigBoard] Online game - Current player:', gameState.currentPlayer);
+			console.log('[BigBoard] Local player:', onlinePlayer.getLocalPlayer());
+			console.log(
+				'[BigBoard] Is local turn:',
+				onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
+			);
+
+			// Check if it's the local player's turn
+			if (!onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
+				console.log('[BigBoard] Not your turn, waiting for opponent');
+				return; // Not your turn
+			}
+
+			// Verify the move is valid before sending
+			const validMove = game.checkValidMove(boardIndex, cellIndex);
+			if (!validMove) {
+				console.log('[BigBoard] Invalid move attempted');
+				return; // Invalid move
+			}
+
+			console.log(`[BigBoard] Making online move: board ${boardIndex}, cell ${cellIndex}`);
+
+			// Make move locally
+			game.makeMove(boardIndex, cellIndex);
+			gameState = game.getState();
+
+			// Send move to remote player
+			onlinePlayer.sendMove(boardIndex, cellIndex, onlinePlayer.getLocalPlayer()!);
+
+			// Check if the game was just won
+			if (gameState.winner) {
+				showVictoryOverlay = true;
+				return;
+			}
+		} else {
+			// Standard local play
+			game.makeMove(boardIndex, cellIndex);
+			gameState = game.getState();
+
+			// check if the game was just won
+			if (gameState.winner) {
+				showVictoryOverlay = true;
+				return;
+			}
+		}
+
+		// After human's move, make CPU move with "thinking" animation if needed
+		if (gameState.gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'O') {
+			// Set the thinking flag immediately
+			isCpuThinking = true;
+
+			// Generate a random thinking time between 0.5 and 1.5 seconds
+			const thinkingTime = Math.floor(Math.random() * 1000) + 500; // 500-1500ms
+
+			// Wait for the "thinking" time before making the CPU move
+			setTimeout(() => {
+				// Get the CPU's move and apply it
+				game.makeCpuMoveIfNeeded();
+
+				// Update game state
+				gameState = game.getState();
+
+				// Clear the thinking flag
+				isCpuThinking = false;
+
+				// Check if CPU won with its move
+				if (gameState.winner) {
+					showVictoryOverlay = true;
+				}
+
+				// Save the updated state
+				game.saveState();
+			}, thinkingTime);
+		}
+	}
+
+	// Apply settings without resetting the game
+	function applySettings() {
+		if (!isInitialized) return;
+
+		// Update game settings
+		game.setGameRules(gameRules);
+		game.setGameMode(gameMode);
+
+		if (gameMode === 'human-vs-cpu') {
+			game.setCpuDifficulty(cpuDifficulty);
+		}
+
+		// Save the updated state with new settings
+		game.saveState();
+
+		// Update the UI state
+		gameState = game.getState();
+	}
+
+	// Reset game
+	function resetGame() {
+		if (!isInitialized) return;
+
+		// Disconnect from online game if active
+		if (gameMode === 'online-multiplayer' && onlinePlayer) {
+			disconnectOnlineGame();
+		}
+
+		// Pass current settings to the reset function
+		game.resetGame({
+			rules: gameRules,
+			mode: gameMode
+		});
+
+		gameState = game.getState();
+		showVictoryOverlay = false;
+	}
+
+	// Hide the victory overlay but keep the game state
+	function hideVictoryOverlay() {
+		showVictoryOverlay = false;
+	}
+
+	// Watch for changes to modal states and save them
+	$effect(() => {
+		if (isInitialized) {
+			saveModalState('settings', showSettingsModal);
+		}
+	});
+
+	$effect(() => {
+		if (isInitialized) {
+			saveModalState('howToPlay', showHowToPlayModal);
+		}
+	});
+
+	// Watch for changes to game settings and save them
+	$effect(() => {
+		if (isInitialized) {
+			saveGameSettings();
+		}
+	});
+
+	// Initialize game
+	onMount(() => {
+		// Load saved game settings from localStorage
+		loadGameSettings();
+
+		// Try to load saved game state from localStorage
+		const savedState = loadGameState();
+
+		// Initialize game with saved state or create a new game
+		game = createGameState(savedState || undefined);
+		gameState = game.getState();
+
+		// Override game state settings with any stored user preferences
+		if (gameMode) {
+			game.setGameMode(gameMode);
+		}
+		if (gameRules) {
+			game.setGameRules(gameRules);
+		}
+		if (cpuDifficulty && gameMode === 'human-vs-cpu') {
+			game.setCpuDifficulty(cpuDifficulty);
+		}
+
+		// Update the game state after applying settings
+		gameState = game.getState();
+
+		// Show victory overlay if the game is already won
+		if (gameState.winner) {
+			showVictoryOverlay = true;
+		}
+
+		// Save initial state if it's a new game
+		if (!savedState) {
+			game.saveState();
+		}
+
+		// Load modal states from localStorage
+		const settingsModalOpen = loadModalState('settings');
+		const howToPlayModalOpen = loadModalState('howToPlay');
+
+		// Set modal states after initialization
+		isInitialized = true;
+
+		// Apply loaded modal states
+		if (settingsModalOpen) {
+			showSettingsModal = true;
+		}
+
+		if (howToPlayModalOpen) {
+			showHowToPlayModal = true;
+		}
+
+		// If it's CPU's turn (O) and game mode is human-vs-cpu, make CPU move with thinking animation
+		if (isInitialized && gameState.gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'O') {
+			// Set the thinking flag immediately
+			isCpuThinking = true;
+
+			// Generate a random thinking time between 0.5 and 1.5 seconds
+			const thinkingTime = Math.floor(Math.random() * 1000) + 500; // 500-1500ms
+
+			setTimeout(() => {
+				// Make the CPU move
+				game.makeCpuMoveIfNeeded();
+				gameState = game.getState();
+
+				// Clear the thinking flag
+				isCpuThinking = false;
+
+				// Check if CPU won with its move
+				if (gameState.winner) {
+					showVictoryOverlay = true;
+				}
+			}, thinkingTime);
+		}
+	});
+
+	// Function to auto-focus an input element when it's mounted
+	function autoFocus(node: HTMLElement) {
+		// Focus the element after a small delay to ensure DOM is ready
+		setTimeout(() => {
+			if (node instanceof HTMLInputElement) {
+				node.focus();
+			}
+		}, 50);
+	}
+</script>
+
+<div class="flex flex-col items-center gap-4 w-full max-w-[550px] mx-auto relative">
+	<!-- Game status bar -->
+	<div class="w-full">
+		<!-- Player indicators -->
+		<div class="flex justify-between items-center w-full relative px-2.5 md:px-1.5">
+			<!-- Player X -->
+			<div
+				class="flex items-center gap-2 py-2 px-4 rounded-md transition-all duration-200 text-red-500 drop-shadow-red-700 drop-shadow-lg/60 ring-2 ring-inset ring-red-500"
+				class:bg-red-900={gameState.currentPlayer === 'X'}
+				class:!text-red-50={gameState.currentPlayer === 'X'}
+			>
+				<Fa icon={faUser} class="text-lg md:text-xl" />
+				<Fa icon={faXmark} class="text-xl md:text-2xl" />
+			</div>
+
+			<!-- Waiting for opponent message - shown when hosting a game -->
+			{#if gameMode === 'online-multiplayer' && connectionStatus === 'waiting'}
+				<div
+					class="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap"
+				>
+					<span>Waiting for opponent...</span>
+					<Fa icon={faSpinner} class="animate-spin" />
+				</div>
+			{/if}
+
+			<!-- Player O -->
+			<div
+				class="flex items-center gap-2 py-2 px-4 rounded-md transition-all duration-200 text-sky-500 drop-shadow-sky-700 drop-shadow-lg/60 ring-2 ring-inset ring-sky-500"
+				class:bg-sky-900={gameState.currentPlayer === 'O'}
+				class:!text-sky-50={gameState.currentPlayer === 'O'}
+			>
+				<Fa
+					icon={gameState.gameMode === 'human-vs-cpu' ? faRobot : faUser}
+					class="text-lg md:text-xl"
+				/>
+				<Fa icon={faO} class="text-xl md:text-2xl" />
+			</div>
+
+			<!-- CPU Thinking Message -->
+			{#if gameState.gameMode === 'human-vs-cpu' && isCpuThinking}
+				<div
+					class="absolute right-0 -bottom-5 text-xs italic text-gray-400 flex items-center gap-1"
+				>
+					<span>thinking...</span>
+					<Fa icon={faSpinner} class="animate-spin" />
+				</div>
+			{/if}
+		</div>
+	</div>
+
+	<!-- Main game board -->
+	<div class="grid grid-cols-3 grid-rows-3 gap-3 bg-zinc-800 p-1.5 rounded-lg w-full aspect-square">
+		{#each Array(3) as _, boardRow}
+			{#each Array(3) as _, boardCol}
+				{@const boardIndex = boardRow * 3 + boardCol}
+				<SmallBoard
+					{boardIndex}
+					board={gameState.boards[boardIndex]}
+					isActive={gameState.activeBoard === null || gameState.activeBoard === boardIndex}
+					winner={gameState.boardWinners[boardIndex]}
+					onCellClick={handleCellClick}
+					lastMove={gameState.lastMove}
+					gameWinner={gameState.winner}
+				/>
+			{/each}
+		{/each}
+	</div>
+
+	<!-- Game controls -->
+	<div class="flex gap-6 mt-4 w-full justify-center select-none">
+		<button
+			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+			onclick={() => (showHowToPlayModal = true)}
+		>
+			<Fa icon={faCircleInfo} class="" />
+			How to Play
+		</button>
+
+		<button
+			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+			onclick={() => (showSettingsModal = true)}
+		>
+			<Fa icon={faGear} class="" />
+			Settings
+		</button>
+
+		<button
+			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+			onclick={resetGame}
+		>
+			<Fa icon={faRotate} class="" />
+			New Game
+		</button>
+	</div>
+
+	<!-- Victory overlay - shown when a player wins -->
+	{#if showVictoryOverlay}
+		<div
+			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
+		>
+			<div
+				class="p-4 md:p-8 rounded-none md:rounded-xl shadow-2xl flex flex-col items-center w-full h-full md:h-auto md:w-auto m-0 md:m-4"
+			>
+				<div class="mb-10 flex flex-row space-x-4 items-center text-6xl">
+					<Fa icon={faTrophy} class="text-amber-500" />
+					<h2
+						class="font-bold"
+						class:text-rose-500={gameState.winner === 'X'}
+						class:text-sky-500={gameState.winner === 'O'}
+					>
+						Player {gameState.winner} Wins!
+					</h2>
+					<Fa icon={faTrophy} class="text-amber-500" />
+				</div>
+				<div class="flex gap-4 w-full justify-center">
+					<button
+						class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+						onclick={resetGame}
+					>
+						<Fa icon={faRotate} />
+						Play Again
+					</button>
+					<button
+						class="px-6 py-2 bg-zinc-800/70 outline-zinc-600 outline-2 hover:bg-zinc-600/70 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer"
+						onclick={hideVictoryOverlay}
+					>
+						<Fa icon={faEye} />
+						View Board
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Settings Modal -->
+	{#if showSettingsModal}
+		<div
+			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
+			role="menu"
+			aria-hidden="true"
+			onclick={(e) => {
+				// Only close if clicking the backdrop, not the modal content
+				if (e.target === e.currentTarget) {
+					showSettingsModal = false;
+					// No need to call saveModalState here as the $effect will handle it
+				}
+			}}
+		>
+			<div
+				class="bg-zinc-900/95 p-8 rounded-xl shadow-2xl flex flex-col items-center w-full max-w-md md:max-w-md md:rounded-xl md:p-8 md:w-auto md:h-auto h-full md:max-h-[90vh] overflow-y-auto m-0 md:m-4"
+			>
+				<div class="w-full flex justify-between items-center mb-6">
+					<h2 class="text-2xl font-bold text-white flex items-center gap-2">
+						<Fa icon={faGear} />
+						Game Settings
+					</h2>
+					<button
+						class="text-gray-400 hover:text-white transition-colors hover:cursor-pointer"
+						onclick={() => (showSettingsModal = false)}
+					>
+						<Fa icon={faTimes} class="text-2xl" />
+					</button>
+				</div>
+
+				<div class="w-full space-y-4">
+					<!-- Game Mode Options -->
+					<div class="flex flex-col gap-2">
+						<h3 class="text-lg font-semibold text-white">Game Mode</h3>
+						<div class="grid grid-cols-3 gap-2">
+							<!-- Human vs Human Option -->
+							<button
+								class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class:border-blue-500={gameMode === 'human-vs-human'}
+								class:border-transparent={gameMode !== 'human-vs-human'}
+								class:ring-2={gameMode === 'human-vs-human'}
+								class:ring-blue-500={gameMode === 'human-vs-human'}
+								onclick={() => (gameMode = 'human-vs-human')}
+							>
+								<div
+									class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+								>
+									{#if gameMode === 'human-vs-human'}
+										<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<div class="flex items-center gap-1 justify-center mb-1">
+									<Fa icon={faUser} class="text-rose-500 text-sm" />
+									<span class="font-medium text-white text-xs">vs</span>
+									<Fa icon={faUser} class="text-sky-500 text-sm" />
+								</div>
+								<p class="text-xs text-gray-400 text-center">Local</p>
+							</button>
+
+							<!-- Human vs CPU Option -->
+							<button
+								class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class:border-blue-500={gameMode === 'human-vs-cpu'}
+								class:border-transparent={gameMode !== 'human-vs-cpu'}
+								class:ring-2={gameMode === 'human-vs-cpu'}
+								class:ring-blue-500={gameMode === 'human-vs-cpu'}
+								onclick={() => (gameMode = 'human-vs-cpu')}
+							>
+								<div
+									class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+								>
+									{#if gameMode === 'human-vs-cpu'}
+										<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<div class="flex items-center gap-1 justify-center mb-1">
+									<Fa icon={faUser} class="text-rose-500 text-sm" />
+									<span class="font-medium text-white text-xs">vs</span>
+									<Fa icon={faRobot} class="text-sky-500 text-sm" />
+								</div>
+								<p class="text-xs text-gray-400 text-center">CPU</p>
+							</button>
+
+							<!-- Online Multiplayer Option -->
+							<button
+								class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class:border-blue-500={gameMode === 'online-multiplayer'}
+								class:border-transparent={gameMode !== 'online-multiplayer'}
+								class:ring-2={gameMode === 'online-multiplayer'}
+								class:ring-blue-500={gameMode === 'online-multiplayer'}
+								onclick={() => (gameMode = 'online-multiplayer')}
+							>
+								<div
+									class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+								>
+									{#if gameMode === 'online-multiplayer'}
+										<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<div class="flex items-center gap-1 justify-center mb-1">
+									<Fa icon={faUser} class="text-rose-500 text-sm" />
+									<span class="font-medium text-white text-xs">vs</span>
+									<Fa icon={faGlobe} class="text-sky-500 text-sm" />
+								</div>
+								<p class="text-xs text-gray-400 text-center">Online</p>
+							</button>
+						</div>
+					</div>
+
+					<!-- CPU Difficulty Options - Only shown when human-vs-cpu is selected -->
+					{#if gameMode === 'human-vs-cpu'}
+						<div class="flex flex-col gap-2 border-t-2 border-zinc-700 pt-4 mt-2">
+							<h3 class="text-lg font-semibold text-white">CPU Difficulty</h3>
+							<div class="grid grid-cols-3 gap-2">
+								<!-- Easy Difficulty Option -->
+								<button
+									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+									class:border-blue-500={cpuDifficulty === 'easy'}
+									class:border-transparent={cpuDifficulty !== 'easy'}
+									class:ring-2={cpuDifficulty === 'easy'}
+									class:ring-blue-500={cpuDifficulty === 'easy'}
+									onclick={() => (cpuDifficulty = 'easy')}
+								>
+									<div
+										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+									>
+										{#if cpuDifficulty === 'easy'}
+											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										{/if}
+									</div>
+									<p class="font-medium text-white text-center text-sm">Easy</p>
+									<p class="text-xs text-gray-400 text-center mt-1">Mostly random moves</p>
+								</button>
+
+								<!-- Moderate Difficulty Option -->
+								<button
+									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+									class:border-blue-500={cpuDifficulty === 'moderate'}
+									class:border-transparent={cpuDifficulty !== 'moderate'}
+									class:ring-2={cpuDifficulty === 'moderate'}
+									class:ring-blue-500={cpuDifficulty === 'moderate'}
+									onclick={() => (cpuDifficulty = 'moderate')}
+								>
+									<div
+										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+									>
+										{#if cpuDifficulty === 'moderate'}
+											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										{/if}
+									</div>
+									<p class="font-medium text-white text-center text-sm">Moderate</p>
+									<p class="text-xs text-gray-400 text-center mt-1">Balanced challenge</p>
+								</button>
+
+								<!-- Expert Difficulty Option -->
+								<button
+									class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+									class:border-blue-500={cpuDifficulty === 'expert'}
+									class:border-transparent={cpuDifficulty !== 'expert'}
+									class:ring-2={cpuDifficulty === 'expert'}
+									class:ring-blue-500={cpuDifficulty === 'expert'}
+									onclick={() => (cpuDifficulty = 'expert')}
+								>
+									<div
+										class="w-5 h-5 rounded-full border-2 border-zinc-500 mb-2 flex items-center justify-center"
+									>
+										{#if cpuDifficulty === 'expert'}
+											<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+										{/if}
+									</div>
+									<p class="font-medium text-white text-center text-sm">Expert</p>
+									<p class="text-xs text-gray-400 text-center mt-1">Strategic & optimal</p>
+								</button>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Online Multiplayer Options - Only shown when online-multiplayer is selected -->
+					{#if gameMode === 'online-multiplayer'}
+						<div class="flex flex-col gap-2 border-t-2 border-zinc-700 pt-4 mt-2">
+							<h3 class="text-lg font-semibold text-white">Online Multiplayer</h3>
+							<div class="flex flex-col gap-2">
+								<!-- Create Game Section -->
+								{#if connectionStatus === 'waiting'}
+									<!-- Game Code Display - Shown when game is created and waiting for opponent -->
+									<div class="flex items-center justify-between rounded-lg overflow-hidden">
+										<input
+											type="text"
+											class="w-full py-3 px-3 bg-zinc-800 text-white focus:outline-none font-medium cursor-default rounded-l-lg border-2 border-r-0 border-blue-500"
+											value="Game Code: {gameCode}"
+											readonly
+										/>
+										<button
+											class="py-3 px-3 h-full transition-colors rounded-l-none rounded-r-lg border-2 border-l-0 border-blue-500 min-h-[3.25rem]"
+											class:bg-blue-600={!isCodeCopied}
+											class:hover:bg-blue-700={!isCodeCopied}
+											class:bg-green-600={isCodeCopied}
+											class:hover:bg-green-700={isCodeCopied}
+											class:text-white={true}
+											onclick={copyGameCodeToClipboard}
+										>
+											<Fa icon={isCodeCopied ? faCheck : faCopy} />
+										</button>
+									</div>
+								{:else}
+									<!-- Create Game Button -->
+									<button
+										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none w-full"
+										class:border-blue-500={connectionStatus === 'connecting'}
+										class:border-transparent={connectionStatus !== 'connecting'}
+										onclick={() => {
+											// Reset join game input if active
+											showGameCodeInput = false;
+											enteredGameCode = '';
+											connectionError = '';
+											// Create new game
+											createOnlineGame();
+										}}
+									>
+										<div class="flex items-center">
+											<Fa icon={faGlobe} class="text-sky-500 text-lg mr-2" />
+											<span class="font-medium text-white">Create Game</span>
+										</div>
+									</button>
+								{/if}
+
+								<!-- Join Game Section -->
+								{#if showGameCodeInput}
+									<!-- Game Code Input - Shown when joining a game -->
+									<div class="flex items-center justify-between rounded-lg overflow-hidden">
+										<input
+											type="text"
+											class="w-full p-3 bg-zinc-800 text-white focus:outline-none font-medium rounded-l-lg border-2 border-r-0 border-blue-500"
+											placeholder="Enter Game Code"
+											bind:value={enteredGameCode}
+											use:autoFocus
+										/>
+										<button
+											class="p-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors h-full rounded-l-none rounded-r-lg border-2 border-l-0 border-blue-500 min-h-[3.25rem]"
+											onclick={joinOnlineGame}
+										>
+											<Fa icon={faAngleRight} />
+										</button>
+									</div>
+									{#if connectionError}
+										<p class="text-red-500 text-xs text-center mt-1">{connectionError}</p>
+									{/if}
+								{:else}
+									<!-- Join Game Button -->
+									<button
+										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none w-full"
+										class:border-blue-500={connectionStatus === 'connecting'}
+										class:border-transparent={connectionStatus !== 'connecting'}
+										onclick={() => {
+											// If already hosting a game, cancel it first
+											if (connectionStatus === 'waiting' && onlinePlayer) {
+												onlinePlayer.disconnect();
+												onlinePlayer = null;
+												connectionStatus = 'disconnected';
+												gameCode = '';
+												isWaitingForOpponent = false;
+											}
+											// Then show the game code input
+											showGameCodeInput = true;
+										}}
+									>
+										<div class="flex items-center">
+											<Fa icon={faAngleRight} class="text-sky-500 text-lg mr-2" />
+											<span class="font-medium text-white">Join Game</span>
+										</div>
+									</button>
+								{/if}
+
+								{#if connectionStatus === 'connected'}
+									<div
+										class="flex items-center justify-between p-3 rounded-lg bg-zinc-800 border-2 border-green-500"
+									>
+										<div class="flex items-center">
+											<Fa icon={faCheck} class="text-green-500 text-lg mr-2" />
+											<span class="font-medium text-white">Connected to game</span>
+										</div>
+										<button
+											class="text-red-400 hover:text-red-300 transition-colors"
+											onclick={disconnectOnlineGame}
+										>
+											<Fa icon={faTimes} />
+										</button>
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Game Rules Options -->
+					<div class="flex flex-col gap-2 mb-6">
+						<h3 class="text-lg font-semibold text-white">Game Rules</h3>
+						<div class="grid grid-cols-2 gap-2">
+							<!-- Standard Rules Option -->
+							<button
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class:border-blue-500={gameRules === 'standard'}
+								class:border-transparent={gameRules !== 'standard'}
+								class:ring-2={gameRules === 'standard'}
+								class:ring-blue-500={gameRules === 'standard'}
+								onclick={() => (gameRules = 'standard')}
+							>
+								<div
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameRules === 'standard'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<p class="font-medium text-white text-center">Standard</p>
+								<p class="text-xs text-gray-400 text-center mt-1">
+									Next board determined by last move
+								</p>
+							</button>
+
+							<!-- Free Play Option -->
+							<button
+								class="flex flex-col items-center p-4 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+								class:border-blue-500={gameRules === 'free-play'}
+								class:border-transparent={gameRules !== 'free-play'}
+								class:ring-2={gameRules === 'free-play'}
+								class:ring-blue-500={gameRules === 'free-play'}
+								onclick={() => (gameRules = 'free-play')}
+							>
+								<div
+									class="w-6 h-6 rounded-full border-2 border-zinc-500 mb-3 flex items-center justify-center"
+								>
+									{#if gameRules === 'free-play'}
+										<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+									{/if}
+								</div>
+								<p class="font-medium text-white text-center">Free Play</p>
+								<p class="text-xs text-gray-400 text-center mt-1">Play in any board at any time</p>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<!-- Action buttons -->
+				<div class="w-full flex flex-row gap-3">
+					<button
+						class="w-full px-3 py-3 border-2 border-zinc-600 hover:bg-zinc-600 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+						onclick={() => {
+							// Apply settings and start a new game
+							resetGame();
+							showSettingsModal = false;
+						}}
+					>
+						Apply & New Game
+					</button>
+					<button
+						class="w-full px-3 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+						onclick={() => {
+							// Apply settings without resetting
+							applySettings();
+							showSettingsModal = false;
+						}}
+					>
+						Apply Settings
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- How to Play Modal -->
+	{#if showHowToPlayModal}
+		<div
+			class="fixed inset-0 bg-black/70 backdrop-blur-[2px] flex items-center justify-center z-50"
+			role="menu"
+			aria-hidden="true"
+			onclick={(e) => {
+				// Only close if clicking the backdrop, not the modal content
+				if (e.target === e.currentTarget) {
+					showHowToPlayModal = false;
+					// No need to call saveModalState here as the $effect will handle it
+				}
+			}}
+		>
+			<div
+				class="bg-zinc-900/95 p-4 md:p-8 rounded-none md:rounded-xl shadow-2xl flex flex-col items-center w-full h-full md:max-w-[50vw] md:h-auto md:max-h-[90vh] overflow-y-auto m-0 md:m-4"
+			>
+				<div class="w-full flex justify-between items-center mb-6 pt-8 md:pt-0">
+					<h2 class="text-3xl font-bold text-white flex items-center gap-2">
+						<Fa icon={faCircleInfo} />
+						<span>How to Play</span>
+					</h2>
+					<button
+						class="text-gray-400 hover:text-white transition-colors hover:cursor-pointer"
+						onclick={() => (showHowToPlayModal = false)}
+					>
+						<Fa icon={faTimes} class="text-2xl" />
+					</button>
+				</div>
+
+				<div class="w-full space-y-6 text-white">
+					<div>
+						<h3 class="text-lg font-semibold mb-2">Tic Tac Squared</h3>
+						<p class="text-gray-300 mb-4">
+							A strategic twist on the classic game, played on 9 small tic-tac-toe boards arranged
+							in a 3×3 grid.
+						</p>
+					</div>
+
+					<div>
+						<h3 class="text-lg font-semibold mb-2">How Moves Work</h3>
+						<ul class="list-disc list-inside space-y-2 text-gray-300">
+							<li>
+								<span class="font-semibold text-blue-400">Standard Mode:</span> Your move determines
+								where your opponent plays next. If you play in the top-right cell of any small board,
+								your opponent must play in the top-right small board.
+							</li>
+							<li>Active boards that can be played on have white highlighting.</li>
+							<li>
+								If a move would send your opponent to a completed board, they can play on any
+								available board.
+							</li>
+							<li>
+								<span class="font-semibold text-blue-400">Free Play Mode:</span> Players can move in
+								any valid board at any time.
+							</li>
+						</ul>
+					</div>
+
+					<div>
+						<h3 class="text-lg font-semibold mb-2">Strategy Tips</h3>
+						<ul class="list-disc list-inside space-y-2 text-gray-300">
+							<li>Think ahead about where your move will send your opponent.</li>
+							<li>
+								Sometimes it's strategic to sacrifice a small board to force your opponent into a
+								disadvantageous position.
+							</li>
+							<li>Try to control the center board, as it connects to every other board.</li>
+						</ul>
+					</div>
+
+					<!-- Button to close modal -->
+					<button
+						class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors mt-6 font-semibold cursor-pointer"
+						onclick={() => (showHowToPlayModal = false)}
+					>
+						Got It!
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+</div>
