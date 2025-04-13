@@ -726,11 +726,6 @@
 
 	// Function to handle keydown events on the game code input
 	function handleGameCodeInputKeydown(event: KeyboardEvent) {
-		// if key is non-alphanumeric, prevent it
-		if (!/^[a-zA-Z0-9]$/.test(event.key)) {
-			event.preventDefault();
-			return;
-		}
 		// Check if the Enter key was pressed and we're not already joining
 		if (event.key === 'Enter' && !isJoiningGame) {
 			// Prevent default form submission behavior
@@ -738,6 +733,25 @@
 			// Trigger the joinOnlineGame function
 			joinOnlineGame();
 		}
+		// if key is backspace, delete, arrows, or home/end, allow it
+		else if (
+			/^(Backspace|Delete|ArrowLeft|ArrowRight|ArrowUp|ArrowDown|Home|End)$/.test(event.key)
+		) {
+			return;
+		}
+		// if key is non-alphanumeric, prevent it
+		else if (!/^[a-zA-Z0-9]$/.test(event.key)) {
+			event.preventDefault();
+			return;
+		}
+	}
+
+	// Check if game code is valid for joining (currently requires 5 characters)
+	function isValidGameCode(code: string): boolean {
+		// First convert code to uppercase to allow for both uppercase and lowercase input
+		const upperCode = code.toUpperCase();
+		// Valid if 5 characters alphanumeric
+		return !!upperCode && /^[A-Z0-9]{5}$/.test(upperCode);
 	}
 </script>
 
@@ -1142,12 +1156,11 @@
 											readonly
 										/>
 										<button
-											class="py-3 px-3 h-full transition-colors rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem]"
+											class="py-3 px-3 h-full transition-colors rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem] text-white"
 											class:bg-sky-600={!isCodeCopied}
 											class:hover:bg-sky-700={!isCodeCopied}
 											class:bg-green-600={isCodeCopied}
 											class:hover:bg-green-700={isCodeCopied}
-											class:text-white={true}
 											onclick={copyGameCodeToClipboard}
 										>
 											<Fa icon={isCodeCopied ? faCheck : faCopy} />
@@ -1202,9 +1215,15 @@
 											pattern="[A-Z0-9]{5}"
 										/>
 										<button
-											class="p-3 bg-sky-600 hover:bg-sky-700 text-white transition-colors h-full rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem]"
+											class="p-3 text-white transition-colors h-full rounded-l-none rounded-r-lg border-2 border-l-0 border-sky-500 min-h-[3.25rem] cursor-disabled"
+											class:bg-sky-600={!isJoiningGame && isValidGameCode(enteredGameCode)}
+											class:hover:bg-sky-700={!isJoiningGame && isValidGameCode(enteredGameCode)}
+											class:cursor-pointer={!isJoiningGame && isValidGameCode(enteredGameCode)}
+											class:bg-zinc-600={isJoiningGame || !isValidGameCode(enteredGameCode)}
+											class:hover:bg-zinc-600={!isValidGameCode(enteredGameCode)}
+											class:cursor-not-allowed={!isValidGameCode(enteredGameCode)}
 											onclick={joinOnlineGame}
-											disabled={isJoiningGame}
+											disabled={isJoiningGame || !isValidGameCode(enteredGameCode)}
 										>
 											{#if isJoiningGame}
 												<Fa icon={faSpinner} class="animate-spin" />
@@ -1356,7 +1375,8 @@
 					{:else}
 						<!-- Regular buttons for non-online games or when not connected -->
 						<button
-							class="w-full px-3 py-3 border-2 border-zinc-600 hover:bg-zinc-600 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer"
+							class="w-full px-3 py-3 border-2 border-zinc-600 hover:bg-zinc-600 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+							disabled={connectionStatus === 'waiting'}
 							onclick={() => {
 								// Apply settings and start a new game
 								resetGame();
