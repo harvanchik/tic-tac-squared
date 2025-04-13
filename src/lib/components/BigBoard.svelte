@@ -902,17 +902,15 @@
 								<!-- Create Game Section -->
 								{#if connectionStatus === 'waiting'}
 									<!-- Game Code Display - Shown when game is created and waiting for opponent -->
-									<div
-										class="flex items-center justify-between p-0 rounded-lg border-2 border-blue-500 bg-zinc-800 overflow-hidden"
-									>
+									<div class="flex items-center justify-between rounded-lg overflow-hidden">
 										<input
 											type="text"
-											class="w-full p-3 bg-transparent text-white focus:outline-none font-medium pl-3 cursor-default"
+											class="w-full py-3 px-3 bg-zinc-800 text-white focus:outline-none font-medium cursor-default rounded-l-lg border-2 border-r-0 border-blue-500"
 											value="Game Code: {gameCode}"
 											readonly
 										/>
 										<button
-											class="p-3 transition-colors h-full"
+											class="py-3 px-3 h-full transition-colors rounded-l-none rounded-r-lg border-2 border-l-0 border-blue-500 min-h-[3.25rem]"
 											class:bg-blue-600={!isCodeCopied}
 											class:hover:bg-blue-700={!isCodeCopied}
 											class:bg-green-600={isCodeCopied}
@@ -948,21 +946,19 @@
 								<!-- Join Game Section -->
 								{#if showGameCodeInput}
 									<!-- Game Code Input - Shown when joining a game -->
-									<div
-										class="flex items-center justify-between p-0 rounded-lg border-2 border-blue-500 bg-zinc-800 overflow-hidden"
-									>
+									<div class="flex items-center justify-between rounded-lg overflow-hidden">
 										<input
 											type="text"
-											class="w-full p-3 bg-transparent text-white focus:outline-none font-medium pl-3"
+											class="w-full p-3 bg-zinc-800 text-white focus:outline-none font-medium rounded-l-lg border-2 border-r-0 border-blue-500"
 											placeholder="Enter Game Code"
 											bind:value={enteredGameCode}
 											use:autoFocus
 										/>
 										<button
-											class="p-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors h-full"
+											class="p-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors h-full rounded-l-none rounded-r-lg border-2 border-l-0 border-blue-500 min-h-[3.25rem]"
 											onclick={joinOnlineGame}
 										>
-											<Fa icon={faCheck} />
+											<Fa icon={faAngleRight} />
 										</button>
 									</div>
 									{#if connectionError}
