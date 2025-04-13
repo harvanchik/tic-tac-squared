@@ -30,7 +30,7 @@ export interface SyncMessage {
 // Interface for connection status messages
 export interface StatusMessage {
 	type: 'status';
-	status: 'connected' | 'disconnected' | 'game-start' | 'forfeit';
+	status: 'connected' | 'disconnected' | 'game-start' | 'forfeit' | 'game-full';
 }
 
 // Union type for all message types
@@ -128,6 +128,22 @@ export class OnlinePlayer {
 				if (this.role !== 'host') {
 					console.warn('[OnlinePlayer] Received connection attempt but not in host role. Closing.');
 					conn.close();
+					return;
+				}
+
+				// Check if we already have an active connection
+				if (this.connection && this.connection.open) {
+					console.warn('[OnlinePlayer] A third player tried to join the game. Rejecting connection.');
+
+					// Send a message to the connecting peer about game being full
+					conn.on('open', () => {
+						conn.send({
+							type: 'status',
+							status: 'game-full'
+						});
+						// Close the connection after sending the message
+						setTimeout(() => conn.close(), 500);
+					});
 					return;
 				}
 
@@ -382,6 +398,16 @@ export class OnlinePlayer {
 					}
 				} else if (message.status === 'forfeit' && this.callbacks.onPlayerDisconnect) {
 					this.callbacks.onPlayerDisconnect();
+				} else if (message.status === 'game-full') {
+					// Handle the case when trying to join a game that's already full
+					console.log('[OnlinePlayer] Received game-full message - game already has 2 players');
+					this.updateStatus('error', 'This game already has 2 players');
+					
+					// Disconnect since we can't join
+					if (this.connection) {
+						this.connection.close();
+						this.connection = null;
+					}
 				}
 				break;
 		}
