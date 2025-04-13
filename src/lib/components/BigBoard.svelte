@@ -980,7 +980,7 @@
 			<div
 				class="bg-zinc-900/95 p-4 md:p-8 rounded-none md:rounded-xl shadow-2xl flex flex-col items-center w-full h-full md:max-w-[50vw] md:h-auto md:max-h-[90vh] overflow-y-auto m-0 md:m-4"
 			>
-				<div class="w-full flex justify-between items-center mb-6">
+				<div class="w-full flex justify-between items-center mb-6 pt-8 md:pt-0">
 					<h2 class="text-3xl font-bold text-white flex items-center gap-2">
 						<Fa icon={faCircleInfo} />
 						<span>How to Play</span>
@@ -1034,31 +1034,14 @@
 						</ul>
 					</div>
 
-					<div>
-						<h3 class="text-lg font-semibold mb-2">Online Multiplayer</h3>
-						<ul class="list-disc list-inside space-y-2 text-gray-300">
-							<li>
-								<span class="font-semibold text-blue-400">Create Game:</span> Generate a unique 5-character
-								game code that your opponent can use to join.
-							</li>
-							<li>
-								<span class="font-semibold text-blue-400">Join Game:</span> Enter the 5-character code
-								provided by your friend to join their game.
-							</li>
-							<li>The player who creates the game plays as X and goes first.</li>
-							<li>The player who joins plays as O and goes second.</li>
-							<li>If either player loses connection, the game will forfeit to the other player.</li>
-							<li>You can share the game code by copying it to your clipboard.</li>
-						</ul>
-					</div>
+					<!-- Button to close modal -->
+					<button
+						class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors mt-6 font-semibold cursor-pointer"
+						onclick={() => (showHowToPlayModal = false)}
+					>
+						Got It!
+					</button>
 				</div>
-
-				<button
-					class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors mt-6 font-semibold cursor-pointer"
-					onclick={() => (showHowToPlayModal = false)}
-				>
-					Got It!
-				</button>
 			</div>
 		</div>
 	{/if}
