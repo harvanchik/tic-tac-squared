@@ -598,9 +598,11 @@
 				<Fa icon={faXmark} class="text-xl md:text-2xl" />
 			</div>
 
-				<!-- Waiting for opponent message - shown when hosting a game -->
+			<!-- Waiting for opponent message - shown when hosting a game -->
 			{#if gameMode === 'online-multiplayer' && connectionStatus === 'waiting'}
-				<div class="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap">
+				<div
+					class="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap"
+				>
 					<span>Waiting for opponent...</span>
 					<Fa icon={faSpinner} class="animate-spin" />
 				</div>
