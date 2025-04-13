@@ -13,7 +13,7 @@
 	>
 		<div class="text-center relative z-10 px-4 mb-4">
 			<h1
-				class="text-7xl font-bold bg-linear-to-r/oklch from-red-500 to-sky-500 inline-block text-transparent bg-clip-text mb-2"
+				class="text-5xl md:text-7xl font-bold bg-linear-to-r/oklch from-red-500 to-sky-500 inline-block text-transparent bg-clip-text mb-2"
 			>
 				Tic Tac Squared
 			</h1>
