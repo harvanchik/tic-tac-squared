@@ -315,6 +315,7 @@
 		if (typeof navigator !== 'undefined' && gameCode) {
 			try {
 				navigator.clipboard.writeText(gameCode);
+				// Visual indication - turn the button green temporarily
 				isCodeCopied = true;
 				setTimeout(() => {
 					isCodeCopied = false;
@@ -570,6 +571,16 @@
 			}, thinkingTime);
 		}
 	});
+
+	// Function to auto-focus an input element when it's mounted
+	function autoFocus(node: HTMLElement) {
+		// Focus the element after a small delay to ensure DOM is ready
+		setTimeout(() => {
+			if (node instanceof HTMLInputElement) {
+				node.focus();
+			}
+		}, 50);
+	}
 </script>
 
 <div class="flex flex-col items-center gap-4 w-full max-w-[550px] mx-auto relative">
@@ -586,6 +597,14 @@
 				<Fa icon={faUser} class="text-lg md:text-xl" />
 				<Fa icon={faXmark} class="text-xl md:text-2xl" />
 			</div>
+
+				<!-- Waiting for opponent message - shown when hosting a game -->
+			{#if gameMode === 'online-multiplayer' && connectionStatus === 'waiting'}
+				<div class="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap">
+					<span>Waiting for opponent...</span>
+					<Fa icon={faSpinner} class="animate-spin" />
+				</div>
+			{/if}
 
 			<!-- Player O -->
 			<div
@@ -878,20 +897,8 @@
 						<div class="flex flex-col gap-2 border-t-2 border-zinc-700 pt-4 mt-2">
 							<h3 class="text-lg font-semibold text-white">Online Multiplayer</h3>
 							<div class="flex flex-col gap-2">
-								{#if connectionStatus !== 'waiting'}
-									<!-- Create Game Button - Only shown when not waiting for opponent -->
-									<button
-										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
-										class:border-blue-500={connectionStatus === 'connecting'}
-										class:border-transparent={connectionStatus !== 'connecting'}
-										onclick={createOnlineGame}
-									>
-										<div class="flex items-center">
-											<Fa icon={faGlobe} class="text-sky-500 text-lg mr-2" />
-											<span class="font-medium text-white">Create Game</span>
-										</div>
-									</button>
-								{:else}
+								<!-- Create Game Section -->
+								{#if connectionStatus === 'waiting'}
 									<!-- Game Code Display - Shown when game is created and waiting for opponent -->
 									<div
 										class="flex items-center justify-between p-0 rounded-lg border-2 border-blue-500 bg-zinc-800 overflow-hidden"
@@ -903,32 +910,41 @@
 											readonly
 										/>
 										<button
-											class="p-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors h-full"
+											class="p-3 transition-colors h-full"
+											class:bg-blue-600={!isCodeCopied}
+											class:hover:bg-blue-700={!isCodeCopied}
+											class:bg-green-600={isCodeCopied}
+											class:hover:bg-green-700={isCodeCopied}
+											class:text-white={true}
 											onclick={copyGameCodeToClipboard}
 										>
 											<Fa icon={isCodeCopied ? faCheck : faCopy} />
 										</button>
 									</div>
-									<p class="text-xs text-center text-gray-400">Waiting for opponent to join...</p>
-									{#if isCodeCopied}
-										<p class="text-green-500 text-xs text-center">Game code copied!</p>
-									{/if}
-								{/if}
-
-								{#if !showGameCodeInput && connectionStatus !== 'connected'}
-									<!-- Join Game Button - Only shown when not already joining or connected -->
+								{:else}
+									<!-- Create Game Button -->
 									<button
-										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none"
+										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none w-full"
 										class:border-blue-500={connectionStatus === 'connecting'}
 										class:border-transparent={connectionStatus !== 'connecting'}
-										onclick={() => (showGameCodeInput = true)}
+										onclick={() => {
+											// Reset join game input if active
+											showGameCodeInput = false;
+											enteredGameCode = '';
+											connectionError = '';
+											// Create new game
+											createOnlineGame();
+										}}
 									>
 										<div class="flex items-center">
-											<Fa icon={faAngleRight} class="text-sky-500 text-lg mr-2" />
-											<span class="font-medium text-white">Join Game</span>
+											<Fa icon={faGlobe} class="text-sky-500 text-lg mr-2" />
+											<span class="font-medium text-white">Create Game</span>
 										</div>
 									</button>
-								{:else if !isWaitingForOpponent && connectionStatus !== 'connected'}
+								{/if}
+
+								<!-- Join Game Section -->
+								{#if showGameCodeInput}
 									<!-- Game Code Input - Shown when joining a game -->
 									<div
 										class="flex items-center justify-between p-0 rounded-lg border-2 border-blue-500 bg-zinc-800 overflow-hidden"
@@ -938,6 +954,7 @@
 											class="w-full p-3 bg-transparent text-white focus:outline-none font-medium pl-3"
 											placeholder="Enter Game Code"
 											bind:value={enteredGameCode}
+											use:autoFocus
 										/>
 										<button
 											class="p-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors h-full"
@@ -947,8 +964,32 @@
 										</button>
 									</div>
 									{#if connectionError}
-										<p class="text-red-500 text-xs text-center">{connectionError}</p>
+										<p class="text-red-500 text-xs text-center mt-1">{connectionError}</p>
 									{/if}
+								{:else}
+									<!-- Join Game Button -->
+									<button
+										class="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 bg-zinc-800 hover:bg-zinc-700 border-2 select-none w-full"
+										class:border-blue-500={connectionStatus === 'connecting'}
+										class:border-transparent={connectionStatus !== 'connecting'}
+										onclick={() => {
+											// If already hosting a game, cancel it first
+											if (connectionStatus === 'waiting' && onlinePlayer) {
+												onlinePlayer.disconnect();
+												onlinePlayer = null;
+												connectionStatus = 'disconnected';
+												gameCode = '';
+												isWaitingForOpponent = false;
+											}
+											// Then show the game code input
+											showGameCodeInput = true;
+										}}
+									>
+										<div class="flex items-center">
+											<Fa icon={faAngleRight} class="text-sky-500 text-lg mr-2" />
+											<span class="font-medium text-white">Join Game</span>
+										</div>
+									</button>
 								{/if}
 
 								{#if connectionStatus === 'connected'}
