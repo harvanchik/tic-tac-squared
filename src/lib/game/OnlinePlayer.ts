@@ -34,8 +34,20 @@ export interface StatusMessage {
 	reason?: 'forfeit' | 'connection-lost';
 }
 
+// Interface for timer synchronization
+export interface TimerMessage {
+	type: 'timer';
+	timeRemaining: number;
+	forPlayer: Player;
+}
+
 // Union type for all message types
-export type MultiplayerMessage = MoveMessage | SettingsMessage | SyncMessage | StatusMessage;
+export type MultiplayerMessage =
+	| MoveMessage
+	| SettingsMessage
+	| SyncMessage
+	| StatusMessage
+	| TimerMessage;
 
 // Connection states
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'waiting' | 'connected' | 'error';
@@ -61,6 +73,7 @@ export class OnlinePlayer {
 		onRemoteSync?: (syncData: Partial<SyncMessage>) => void;
 		onGameStart?: () => void;
 		onPlayerDisconnect?: (reason?: 'forfeit' | 'connection-lost') => void;
+		onRemoteTimer?: (timeRemaining: number, forPlayer: Player) => void;
 	} = {};
 	private status: ConnectionStatus = 'disconnected';
 	private role: PlayerRole | null = null;
@@ -77,6 +90,7 @@ export class OnlinePlayer {
 		onRemoteSync?: (syncData: Partial<SyncMessage>) => void;
 		onGameStart?: () => void;
 		onPlayerDisconnect?: (reason?: 'forfeit' | 'connection-lost') => void;
+		onRemoteTimer?: (timeRemaining: number, forPlayer: Player) => void;
 	}) {
 		this.callbacks = callbacks;
 	}
@@ -377,6 +391,15 @@ export class OnlinePlayer {
 				}
 				break;
 
+			case 'timer':
+				console.log(
+					`[OnlinePlayer] Received timer update: ${message.timeRemaining}s for ${message.forPlayer}`
+				);
+				if (this.callbacks.onRemoteTimer) {
+					this.callbacks.onRemoteTimer(message.timeRemaining, message.forPlayer);
+				}
+				break;
+
 			case 'status':
 				console.log(`[OnlinePlayer] Received status update: ${message.status}`);
 
@@ -465,6 +488,17 @@ export class OnlinePlayer {
 		this.sendMessage({
 			type: 'sync',
 			...data
+		});
+	}
+
+	/**
+	 * Send timer information to the remote player
+	 */
+	sendTimer(timeRemaining: number, forPlayer: Player): void {
+		this.sendMessage({
+			type: 'timer',
+			timeRemaining,
+			forPlayer
 		});
 	}
 

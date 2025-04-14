@@ -21,7 +21,8 @@
 		faCopy,
 		faCheck,
 		faAngleRight,
-		faRightFromBracket
+		faRightFromBracket,
+		faClock
 	} from '@fortawesome/free-solid-svg-icons';
 
 	// Constants for localStorage keys
@@ -66,6 +67,13 @@
 	let isCpuThinking = $state(false);
 	// Track if the entire board should be disabled (game over, forfeit, disconnection)
 	let boardDisabled = $state(false);
+
+	// Turn timer state variables
+	const TURN_TIME_LIMIT = 20; // 20 seconds per turn
+	let turnTimeRemaining = $state(TURN_TIME_LIMIT);
+	let opponentTimeRemaining = $state(TURN_TIME_LIMIT); // Track opponent's time remaining
+	let timerInterval: ReturnType<typeof setInterval> | null = $state(null);
+	let isTimerActive = $state(false);
 
 	// Settings state variables
 	let showSettingsModal = $state(false);
@@ -207,6 +215,10 @@
 				// Check for victory
 				if (gameState.winner) {
 					showVictoryOverlay = true;
+				} else if (onlinePlayer?.isLocalPlayerTurn(gameState.currentPlayer)) {
+					// After receiving a remote move, if it's now the local player's turn, start the timer
+					console.log('[BigBoard] Starting timer after remote move');
+					startTurnTimer();
 				}
 			},
 			onRemoteSettings: (rules) => {
@@ -233,6 +245,12 @@
 					console.log(
 						`[BigBoard] Is local turn: ${onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}`
 					);
+
+					// Start timer if it's this player's turn
+					if (onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
+						console.log('[BigBoard] Starting timer for local player');
+						startTurnTimer();
+					}
 				}
 			},
 			onPlayerDisconnect: (reason) => {
@@ -270,6 +288,13 @@
 
 					// Update game state to reflect changes
 					gameState = game.getState();
+				}
+			},
+			onRemoteTimer: (timeRemaining, forPlayer) => {
+				// Update opponent's time remaining
+				console.log(`[BigBoard] Received timer update: ${timeRemaining}s for player ${forPlayer}`);
+				if (onlinePlayer && !onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
+					opponentTimeRemaining = timeRemaining;
 				}
 			}
 		});
@@ -439,13 +464,6 @@
 
 		// For online multiplayer, only allow moves on your turn
 		if (gameMode === 'online-multiplayer' && onlinePlayer) {
-			console.log('[BigBoard] Online game - Current player:', gameState.currentPlayer);
-			console.log('[BigBoard] Local player:', onlinePlayer.getLocalPlayer());
-			console.log(
-				'[BigBoard] Is local turn:',
-				onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
-			);
-
 			// Check if it's the local player's turn
 			if (!onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
 				console.log('[BigBoard] Not your turn, waiting for opponent');
@@ -461,6 +479,13 @@
 
 			console.log(`[BigBoard] Making online move: board ${boardIndex}, cell ${cellIndex}`);
 
+			// Stop the timer since the player just made a move
+			clearTurnTimer();
+
+			// Reset both timers to 20 seconds for the next turn
+			turnTimeRemaining = TURN_TIME_LIMIT;
+			opponentTimeRemaining = TURN_TIME_LIMIT;
+
 			// Make move locally
 			game.makeMove(boardIndex, cellIndex);
 			gameState = game.getState();
@@ -475,6 +500,14 @@
 			}
 		} else {
 			// Standard local play
+
+			// Stop the timer since the player just made a move
+			clearTurnTimer();
+
+			// Reset timer to 20 seconds for the next turn
+			turnTimeRemaining = TURN_TIME_LIMIT;
+
+			// Make the move
 			game.makeMove(boardIndex, cellIndex);
 			gameState = game.getState();
 
@@ -483,35 +516,17 @@
 				showVictoryOverlay = true;
 				return;
 			}
+
+			// Start timer for next player in human vs human mode
+			if (gameMode === 'human-vs-human' && !gameState.winner && !gameState.isDraw) {
+				startTurnTimer();
+			}
 		}
 
 		// After human's move, make CPU move with "thinking" animation if needed
 		if (gameState.gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'O') {
-			// Set the thinking flag immediately
-			isCpuThinking = true;
-
-			// Generate a random thinking time between 0.5 and 1.5 seconds
-			const thinkingTime = Math.floor(Math.random() * 1000) + 500; // 500-1500ms
-
-			// Wait for the "thinking" time before making the CPU move
-			setTimeout(() => {
-				// Get the CPU's move and apply it
-				game.makeCpuMoveIfNeeded();
-
-				// Update game state
-				gameState = game.getState();
-
-				// Clear the thinking flag
-				isCpuThinking = false;
-
-				// Check if CPU won with its move
-				if (gameState.winner) {
-					showVictoryOverlay = true;
-				}
-
-				// Save the updated state
-				game.saveState();
-			}, thinkingTime);
+			// Handle CPU turn (this already deals with timer)
+			handleCpuTurn();
 		}
 	}
 
@@ -638,6 +653,146 @@
 		);
 	});
 
+	// Start or reset the turn timer
+	function startTurnTimer() {
+		// Clear any existing timer
+		clearTurnTimer();
+
+		// Reset time remaining to full amount
+		turnTimeRemaining = TURN_TIME_LIMIT;
+
+		// Set timer as active immediately to show the timer
+		isTimerActive = true;
+
+		// Use a timestamp to track when the timer started
+		const startTime = Date.now();
+
+		// Create a new timer with a 1-second interval
+		timerInterval = setInterval(() => {
+			// Calculate how many seconds have elapsed
+			const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+
+			// If less than 1 second has elapsed, keep showing 20
+			if (elapsedSeconds < 1) {
+				// Just show 20 and send initial timer value
+				if (
+					gameMode === 'online-multiplayer' &&
+					onlinePlayer &&
+					onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
+				) {
+					onlinePlayer.sendTimer(TURN_TIME_LIMIT, gameState.currentPlayer);
+				}
+			} else {
+				// Update timer value based on elapsed time
+				// This ensures we count down exactly when each second passes
+				turnTimeRemaining = TURN_TIME_LIMIT - elapsedSeconds;
+
+				// In online multiplayer, send timer updates to opponent
+				if (
+					gameMode === 'online-multiplayer' &&
+					onlinePlayer &&
+					onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
+				) {
+					onlinePlayer.sendTimer(turnTimeRemaining, gameState.currentPlayer);
+				}
+
+				// Check if time has run out
+				if (turnTimeRemaining <= 0) {
+					// Time's up - handle skipping the current player's turn
+					handleTimeUp();
+				}
+			}
+		}, 200); // Check more frequently for smoother timing
+	}
+
+	// Clear the turn timer
+	function clearTurnTimer() {
+		if (timerInterval) {
+			clearInterval(timerInterval);
+			timerInterval = null;
+		}
+		isTimerActive = false;
+	}
+
+	// Handle when the timer runs out
+	function handleTimeUp() {
+		console.log('[BigBoard] Turn timer expired, skipping player:', gameState.currentPlayer);
+
+		// Clear the timer
+		clearTurnTimer();
+
+		// Disable the board temporarily while switching turns
+		boardDisabled = true;
+
+		// Wait 0.5 seconds before switching players
+		setTimeout(() => {
+			// In human vs CPU mode, only skip human's turn (X)
+			if (gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'X') {
+				// Switch player to CPU's turn (O) without making a move
+				game.makeMove(-1, -1); // Special move code that just switches players
+				gameState = game.getState();
+
+				// Start CPU's turn
+				handleCpuTurn();
+			}
+			// In online multiplayer, only handle skipping if it's the local player's turn
+			else if (gameMode === 'online-multiplayer' && onlinePlayer) {
+				if (onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
+					// Send "time up" forfeit move to opponent
+					onlinePlayer.sendMove(-1, -1, onlinePlayer.getLocalPlayer()!);
+
+					// Switch to opponent's turn locally
+					game.makeMove(-1, -1);
+					gameState = game.getState();
+				}
+			}
+			// In human vs human mode, just switch players
+			else if (gameMode === 'human-vs-human') {
+				// Switch players without making a move
+				game.makeMove(-1, -1);
+				gameState = game.getState();
+
+				// Start the timer for the next player
+				startTurnTimer();
+			}
+
+			// Re-enable the board
+			boardDisabled = false;
+		}, 500); // 0.5 seconds delay
+	}
+
+	// Handle starting the CPU's turn
+	function handleCpuTurn() {
+		// Skip timer for CPU's turn and just show thinking animation
+		isCpuThinking = true;
+
+		// Generate a random thinking time between 0.5 and 1.5 seconds
+		const thinkingTime = Math.floor(Math.random() * 1000) + 500; // 500-1500ms
+
+		// Wait for the "thinking" time before making the CPU move
+		setTimeout(() => {
+			// Get the CPU's move and apply it
+			game.makeCpuMoveIfNeeded();
+
+			// Update game state
+			gameState = game.getState();
+
+			// Clear the thinking flag
+			isCpuThinking = false;
+
+			// Check if CPU won with its move
+			if (gameState.winner) {
+				showVictoryOverlay = true;
+			} else if (!gameState.isDraw) {
+				// Start timer for human player's turn
+				startTurnTimer();
+			}
+
+			// Save the updated state
+			game.saveState();
+		}, thinkingTime);
+	}
+
 	// Initialize game
 	onMount(() => {
 		// Load saved game settings from localStorage
@@ -690,6 +845,17 @@
 			showHowToPlayModal = true;
 		}
 
+		// If game is in progress and not against CPU or it's human's turn, start timer
+		if (!gameState.winner && !gameState.isDraw) {
+			if (
+				gameMode === 'human-vs-human' ||
+				(gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'X')
+			) {
+				// Start timer for the current player
+				startTurnTimer();
+			}
+		}
+
 		// If it's CPU's turn (O) and game mode is human-vs-cpu, make CPU move with thinking animation
 		if (isInitialized && gameState.gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'O') {
 			// Set the thinking flag immediately
@@ -709,6 +875,9 @@
 				// Check if CPU won with its move
 				if (gameState.winner) {
 					showVictoryOverlay = true;
+				} else if (!gameState.isDraw) {
+					// Start timer for human player's turn
+					startTurnTimer();
 				}
 			}, thinkingTime);
 		}
@@ -770,10 +939,25 @@
 				<Fa icon={faXmark} class="text-xl md:text-2xl" />
 			</div>
 
-			<!-- Waiting for opponent message - shown when hosting a game -->
+			<!-- Turn Timer - Centered between players, always visible -->
+			<div
+				class="absolute left-1/2 -translate-x-1/2 text-lg md:text-3xl font-semibold flex items-center gap-2 whitespace-nowrap font-mono text-white/80"
+				class:text-rose-500={gameMode === 'online-multiplayer' && onlinePlayer
+					? onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
+						? turnTimeRemaining <= 5
+						: opponentTimeRemaining <= 5
+					: turnTimeRemaining <= 5}
+			>
+				{#if gameMode === 'online-multiplayer' && onlinePlayer && !onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}
+					<span>0:{opponentTimeRemaining < 10 ? '0' : ''}{opponentTimeRemaining}</span>
+				{:else}
+					<span>0:{turnTimeRemaining < 10 ? '0' : ''}{turnTimeRemaining}</span>
+				{/if}
+			</div>
 			{#if gameMode === 'online-multiplayer' && connectionStatus === 'waiting'}
+				<!-- Waiting for opponent message - shown when hosting a game -->
 				<div
-					class="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap"
+					class="absolute left-1/2 -translate-x-1/2 -top-8 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap"
 				>
 					<span>Waiting for opponent...</span>
 					<Fa icon={faSpinner} class="animate-spin" />

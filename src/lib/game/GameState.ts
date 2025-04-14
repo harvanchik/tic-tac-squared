@@ -216,6 +216,13 @@ export function createGameState(initialState?: GameState) {
 		// if game is over or move is invalid, do nothing
 		if (winner || isDraw) return;
 
+		// Special case: -1, -1 indicates a skipped turn from timer expiration
+		if (boardIndex === -1 && cellIndex === -1) {
+			// Just switch players without making an actual move
+			currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+			return;
+		}
+
 		// In standard mode, we enforce the active board rule
 		// In free-play mode, players can move on any board at any time
 		if (gameRules === 'standard' && activeBoard !== null && activeBoard !== boardIndex) return;
