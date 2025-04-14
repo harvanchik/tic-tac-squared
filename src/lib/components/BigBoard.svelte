@@ -667,14 +667,17 @@
 		// Use a timestamp to track when the timer started
 		const startTime = Date.now();
 
-		// Create a new timer with a 1-second interval
+		// Create a new timer with a frequent check interval for smoother countdown
 		timerInterval = setInterval(() => {
 			// Calculate how many seconds have elapsed
 			const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
 
 			// If less than 1 second has elapsed, keep showing 20
 			if (elapsedSeconds < 1) {
-				// Just show 20 and send initial timer value
+				// Just keep showing initial timer value (20) for the first second
+				turnTimeRemaining = TURN_TIME_LIMIT;
+
+				// Send initial timer value in online mode
 				if (
 					gameMode === 'online-multiplayer' &&
 					onlinePlayer &&
@@ -687,7 +690,7 @@
 				// This ensures we count down exactly when each second passes
 				turnTimeRemaining = TURN_TIME_LIMIT - elapsedSeconds;
 
-				// In online multiplayer, send timer updates to opponent
+				// Send timer updates in online mode
 				if (
 					gameMode === 'online-multiplayer' &&
 					onlinePlayer &&
@@ -702,7 +705,7 @@
 					handleTimeUp();
 				}
 			}
-		}, 200); // Check more frequently for smoother timing
+		}, 100); // Check frequently for smoother timing
 	}
 
 	// Clear the turn timer
