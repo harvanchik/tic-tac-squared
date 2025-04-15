@@ -989,27 +989,37 @@
 			</div>
 
 			<!-- Turn Timer - Centered between players, always visible -->
-			<div
-				class="absolute left-1/2 -translate-x-1/2 text-lg md:text-3xl font-semibold flex items-center gap-2 whitespace-nowrap font-mono text-white/80"
-				class:text-rose-500={gameMode === 'online-multiplayer' && onlinePlayer
-					? onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
-						? turnTimeRemaining <= 5
-						: opponentTimeRemaining <= 5
-					: turnTimeRemaining <= 5}
-			>
-				{#if gameMode === 'online-multiplayer' && onlinePlayer && !onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}
-					<span>0:{opponentTimeRemaining < 10 ? '0' : ''}{opponentTimeRemaining}</span>
-				{:else}
-					<span>0:{turnTimeRemaining < 10 ? '0' : ''}{turnTimeRemaining}</span>
-				{/if}
-			</div>
+			{#if (gameMode === 'online-multiplayer' && connectionStatus === 'connected') || gameMode === 'human-vs-cpu' || gameMode === 'human-vs-human'}
+				<div
+					class="absolute left-1/2 -translate-x-1/2 text-2xl md:text-3xl font-semibold flex items-center gap-2 whitespace-nowrap font-mono text-white/80"
+					class:text-rose-500={gameMode === 'online-multiplayer' && onlinePlayer
+						? onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
+							? turnTimeRemaining <= 5
+							: opponentTimeRemaining <= 5
+						: turnTimeRemaining <= 5}
+				>
+					{#if gameMode === 'online-multiplayer' && onlinePlayer && !onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}
+						<span>0:{opponentTimeRemaining < 10 ? '0' : ''}{opponentTimeRemaining}</span>
+					{:else}
+						<span>0:{turnTimeRemaining < 10 ? '0' : ''}{turnTimeRemaining}</span>
+					{/if}
+				</div>
+			{/if}
 			{#if gameMode === 'online-multiplayer' && connectionStatus === 'waiting'}
 				<!-- Waiting for opponent message - shown when hosting a game -->
 				<div
-					class="absolute left-1/2 -translate-x-1/2 -top-8 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap"
+					class="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap"
 				>
 					<span>Waiting for opponent...</span>
 					<Fa icon={faSpinner} class="animate-spin" />
+				</div>
+			{/if}
+			<!-- Message to generate a code if in multiplayer but no code created yet -->
+			{#if gameMode === 'online-multiplayer' && !gameCode && connectionStatus !== 'connected'}
+				<div
+					class="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 flex items-center gap-2 text-center wrap-normal"
+				>
+					<span>Create a game to invite a friend!</span>
 				</div>
 			{/if}
 
