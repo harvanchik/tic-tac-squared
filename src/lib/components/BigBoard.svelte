@@ -67,6 +67,8 @@
 	let isCpuThinking = $state(false);
 	// Track if the entire board should be disabled (game over, forfeit, disconnection)
 	let boardDisabled = $state(false);
+	// Track if it's the first move of the game
+	let isFirstMove = $state(true);
 
 	// Turn timer state variables
 	const TURN_TIME_LIMIT = 20; // 20 seconds per turn
@@ -202,6 +204,14 @@
 			onRemoteMove: (boardIndex, cellIndex) => {
 				console.log(`[BigBoard] Received remote move: board ${boardIndex}, cell ${cellIndex}`);
 
+				// Check if this is the first move of the game
+				const wasFirstMove = isFirstMove;
+
+				// If it was the first move, update the flag
+				if (isFirstMove) {
+					isFirstMove = false;
+				}
+
 				// Make the remote player's move on the local board
 				game.makeMove(boardIndex, cellIndex);
 				gameState = game.getState();
@@ -218,6 +228,7 @@
 				} else if (onlinePlayer?.isLocalPlayerTurn(gameState.currentPlayer)) {
 					// After receiving a remote move, if it's now the local player's turn, start the timer
 					console.log('[BigBoard] Starting timer after remote move');
+					// If this was the first move of the game, we need to force the timer to start now
 					startTurnTimer();
 				}
 			},
@@ -246,9 +257,13 @@
 						`[BigBoard] Is local turn: ${onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}`
 					);
 
-					// Start timer if it's this player's turn
+					// Make sure isFirstMove is set to true for a new game
+					isFirstMove = true;
+
+					// Display timer for the first player but don't start countdown
+					// The startTurnTimer function will check isFirstMove and not actually start the countdown
 					if (onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
-						console.log('[BigBoard] Starting timer for local player');
+						console.log('[BigBoard] Displaying timer for first move (no countdown)');
 						startTurnTimer();
 					}
 				}
@@ -486,6 +501,14 @@
 			turnTimeRemaining = TURN_TIME_LIMIT;
 			opponentTimeRemaining = TURN_TIME_LIMIT;
 
+			// Check if this is the first move of the game
+			const wasFirstMove = isFirstMove;
+
+			// Update isFirstMove flag after the first move
+			if (isFirstMove) {
+				isFirstMove = false;
+			}
+
 			// Make move locally
 			game.makeMove(boardIndex, cellIndex);
 			gameState = game.getState();
@@ -507,6 +530,14 @@
 			// Reset timer to 20 seconds for the next turn
 			turnTimeRemaining = TURN_TIME_LIMIT;
 
+			// Check if this is the first move of the game
+			const wasFirstMove = isFirstMove;
+
+			// Update isFirstMove flag after the first move
+			if (isFirstMove) {
+				isFirstMove = false;
+			}
+
 			// Make the move
 			game.makeMove(boardIndex, cellIndex);
 			gameState = game.getState();
@@ -519,7 +550,13 @@
 
 			// Start timer for next player in human vs human mode
 			if (gameMode === 'human-vs-human' && !gameState.winner && !gameState.isDraw) {
-				startTurnTimer();
+				// If this was the first move, we need to start the timer now for the second player
+				if (wasFirstMove) {
+					console.log('[BigBoard] Starting timer after first move (for second player)');
+					startTurnTimer();
+				} else {
+					startTurnTimer();
+				}
 			}
 		}
 
@@ -588,6 +625,9 @@
 
 		// Clear user forfeit flag
 		userForfeited = false;
+
+		// Reset first move flag
+		isFirstMove = true;
 
 		// Make sure to re-enable the board for the new game
 		boardDisabled = false;
@@ -663,6 +703,12 @@
 
 		// Set timer as active immediately to show the timer
 		isTimerActive = true;
+
+		// Skip starting the actual countdown for the first move of the game
+		if (isFirstMove) {
+			console.log('[BigBoard] First move of the game, not starting timer countdown');
+			return;
+		}
 
 		// Use a timestamp to track when the timer started
 		const startTime = Date.now();
