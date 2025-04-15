@@ -84,15 +84,18 @@ export class OnlinePlayer {
 	/**
 	 * Initialize the OnlinePlayer with callback functions
 	 */
-	constructor(callbacks: {
-		onStatusChange?: (status: ConnectionStatus, error?: string) => void;
-		onRemoteMove?: (boardIndex: number, cellIndex: number) => void;
-		onRemoteSettings?: (gameRules: GameRules) => void;
-		onRemoteSync?: (syncData: Partial<SyncMessage>) => void;
-		onGameStart?: () => void;
-		onPlayerDisconnect?: (reason?: 'forfeit' | 'connection-lost') => void;
-		onRemoteTimer?: (timeRemaining: number, forPlayer: Player) => void;
-	}, initialGameRules?: GameRules) {
+	constructor(
+		callbacks: {
+			onStatusChange?: (status: ConnectionStatus, error?: string) => void;
+			onRemoteMove?: (boardIndex: number, cellIndex: number) => void;
+			onRemoteSettings?: (gameRules: GameRules) => void;
+			onRemoteSync?: (syncData: Partial<SyncMessage>) => void;
+			onGameStart?: () => void;
+			onPlayerDisconnect?: (reason?: 'forfeit' | 'connection-lost') => void;
+			onRemoteTimer?: (timeRemaining: number, forPlayer: Player) => void;
+		},
+		initialGameRules?: GameRules
+	) {
 		this.callbacks = callbacks;
 		if (initialGameRules) this.currentGameRules = initialGameRules;
 	}
