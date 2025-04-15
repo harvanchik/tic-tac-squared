@@ -233,37 +233,27 @@
 				}
 			},
 			onRemoteSettings: (rules) => {
-				// Apply received game rules
-				gameRules = rules;
-				game.setGameRules(rules);
-				gameState = game.getState();
+				// Only update the game rule if this player is the guest
+				if (onlinePlayer && onlinePlayer.getRole() === 'guest') {
+					gameRules = rules;
+					if (game) game.setGameRules(rules);
+					gameState = game.getState();
+				}
 			},
 			onGameStart: () => {
 				// Game is ready to start - both players are connected
-				console.log('[BigBoard] Game starting! Player roles assigned.');
-				isWaitingForOpponent = false; // Now we can hide the waiting indicator
+				// Always set the game rule to the current (host's) rule for both players
+				if (game) game.setGameRules(gameRules);
+				gameState = game.getState();
+				// ...existing code...
+				isWaitingForOpponent = false;
 				showSettingsModal = false;
-
-				// Update UI with player roles
 				if (onlinePlayer) {
 					const role = onlinePlayer.getRole();
 					const localPlayer = onlinePlayer.getLocalPlayer();
-					console.log(`[BigBoard] You are playing as ${role} (${localPlayer})`);
-
-					// Set initial player turn state
-					gameState = game.getState();
-					console.log(`[BigBoard] Current player: ${gameState.currentPlayer}`);
-					console.log(
-						`[BigBoard] Is local turn: ${onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}`
-					);
-
-					// Make sure isFirstMove is set to true for a new game
+					// ...existing code...
 					isFirstMove = true;
-
-					// Display timer for the first player but don't start countdown
-					// The startTurnTimer function will check isFirstMove and not actually start the countdown
 					if (onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
-						console.log('[BigBoard] Displaying timer for first move (no countdown)');
 						startTurnTimer();
 					}
 				}
@@ -321,6 +311,11 @@
 			initializeOnlinePlayer();
 		}
 
+		// Ensure the host's selected rule is set in OnlinePlayer before creating the game
+		if (onlinePlayer) {
+			onlinePlayer.setCurrentGameRules(gameRules);
+		}
+
 		try {
 			connectionStatus = 'connecting';
 			connectionError = '';
@@ -334,6 +329,12 @@
 				mode: 'online-multiplayer'
 			});
 			gameState = game.getState();
+
+			gameRules = gameRules; // lock in the selected rule
+			if (game) game.setGameRules(gameRules);
+			if (onlinePlayer) {
+				onlinePlayer.sendSettings(gameRules);
+			}
 
 			// Set player role as host (X)
 			gameState.onlineStatus = 'host';
@@ -376,6 +377,9 @@
 				mode: 'online-multiplayer'
 			});
 			gameState = game.getState();
+
+			gameRules = gameRules; // lock in the selected rule
+			if (game) game.setGameRules(gameRules);
 
 			// Set player role as guest (O)
 			gameState.onlineStatus = 'guest';

@@ -79,6 +79,7 @@ export class OnlinePlayer {
 	private role: PlayerRole | null = null;
 	private localPlayer: Player | null = null;
 	private forfeitReceived: boolean = false; // Flag to track if a forfeit message has been received
+	private currentGameRules: GameRules = 'standard'; // Add this property to track the host's rule
 
 	/**
 	 * Initialize the OnlinePlayer with callback functions
@@ -91,8 +92,9 @@ export class OnlinePlayer {
 		onGameStart?: () => void;
 		onPlayerDisconnect?: (reason?: 'forfeit' | 'connection-lost') => void;
 		onRemoteTimer?: (timeRemaining: number, forPlayer: Player) => void;
-	}) {
+	}, initialGameRules?: GameRules) {
 		this.callbacks = callbacks;
+		if (initialGameRules) this.currentGameRules = initialGameRules;
 	}
 
 	/**
@@ -408,6 +410,9 @@ export class OnlinePlayer {
 					if (this.role === 'host') {
 						console.log(`[OnlinePlayer] Host received connection from guest`);
 
+						// Send the current game rule to the guest
+						this.sendSettings(this.currentGameRules);
+
 						// Send game start message to guest
 						this.sendMessage({
 							type: 'status',
@@ -571,5 +576,12 @@ export class OnlinePlayer {
 		this.role = null;
 		this.localPlayer = null;
 		this.updateStatus('disconnected');
+	}
+
+	/**
+	 * Set the current game rules
+	 */
+	setCurrentGameRules(rules: GameRules) {
+		this.currentGameRules = rules;
 	}
 }
