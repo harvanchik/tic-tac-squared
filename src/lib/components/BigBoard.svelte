@@ -1082,13 +1082,23 @@
 			Settings
 		</button>
 
-		<button
-			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
-			onclick={resetGame}
-		>
-			<Fa icon={faRotate} class="" />
-			New Game
-		</button>
+		{#if gameMode === 'online-multiplayer' && connectionStatus === 'connected'}
+			<button
+				class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+				onclick={disconnectOnlineGame}
+			>
+				<Fa icon={faRightFromBracket} class="text-rose-500/80" />
+				Leave Game
+			</button>
+		{:else}
+			<button
+				class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+				onclick={resetGame}
+			>
+				<Fa icon={faRotate} class="" />
+				New Game
+			</button>
+		{/if}
 	</div>
 
 	<!-- Victory overlay - shown when a player wins -->
@@ -1409,7 +1419,7 @@
 										onclick={disconnectOnlineGame}
 									>
 										<div class="flex items-center">
-											<Fa icon={faRightFromBracket} class="text-lg mr-2 text-rose-500/90" />
+											<Fa icon={faRightFromBracket} class="text-lg mr-2 text-rose-500/80" />
 											<span class="font-medium">Leave Current Game</span>
 										</div>
 									</button>
