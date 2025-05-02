@@ -22,7 +22,8 @@
 		faCheck,
 		faAngleRight,
 		faRightFromBracket,
-		faClock
+		faClock,
+		faPause
 	} from '@fortawesome/free-solid-svg-icons';
 
 	// Constants for localStorage keys
@@ -995,17 +996,29 @@
 			<!-- Turn Timer - Centered between players, always visible -->
 			{#if (gameMode === 'online-multiplayer' && connectionStatus === 'connected') || gameMode === 'human-vs-cpu' || gameMode === 'human-vs-human'}
 				<div
-					class="absolute left-1/2 -translate-x-1/2 text-2xl md:text-3xl font-semibold flex items-center gap-2 whitespace-nowrap font-mono text-white/80"
+					class="absolute text-2xl md:text-3xl animate font-semibold flex items-center gap-2 whitespace-nowrap font-mono text-white/80"
 					class:text-rose-500={gameMode === 'online-multiplayer' && onlinePlayer
 						? onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)
 							? turnTimeRemaining <= 5
 							: opponentTimeRemaining <= 5
 						: turnTimeRemaining <= 5}
+					class:left-24={gameState.currentPlayer === 'X'}
+					class:right-24={gameState.currentPlayer === 'O'}
 				>
 					{#if gameMode === 'online-multiplayer' && onlinePlayer && !onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)}
-						<span>0:{opponentTimeRemaining < 10 ? '0' : ''}{opponentTimeRemaining}</span>
+						<span
+							class:text-rose-500={gameState.currentPlayer === 'X'}
+							class:text-sky-500={gameState.currentPlayer === 'O'}
+							class:ml-auto={gameState.currentPlayer === 'X'}
+							>0:{opponentTimeRemaining < 10 ? '0' : ''}{opponentTimeRemaining}</span
+						>
 					{:else}
-						<span>0:{turnTimeRemaining < 10 ? '0' : ''}{turnTimeRemaining}</span>
+						<span
+							class:text-rose-500={gameState.currentPlayer === 'X'}
+							class:text-sky-500={gameState.currentPlayer === 'O'}
+							class:ml-auto={gameState.currentPlayer === 'X'}
+							>0:{turnTimeRemaining < 10 ? '0' : ''}{turnTimeRemaining}</span
+						>
 					{/if}
 				</div>
 			{/if}
