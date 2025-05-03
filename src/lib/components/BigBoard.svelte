@@ -631,11 +631,16 @@
 		// Clear user forfeit flag
 		userForfeited = false;
 
-		// Reset first move flag
+		// Reset first move flag to ensure timer doesn't start counting down immediately
 		isFirstMove = true;
 
 		// Make sure to re-enable the board for the new game
 		boardDisabled = false;
+
+		// Clear any existing timer and reset timer state
+		clearTurnTimer();
+		turnTimeRemaining = TURN_TIME_LIMIT;
+		opponentTimeRemaining = TURN_TIME_LIMIT;
 
 		// Get updated state
 		gameState = game.getState();
