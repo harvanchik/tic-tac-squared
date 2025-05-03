@@ -12,6 +12,7 @@
 		gameWinner,
 		isLocalPlayerTurn = true,
 		boardDisabled // New prop to disable cell interaction
+		// isDraw = false // New prop to track if this board ended in a draw
 	} = $props<{
 		boardIndex: number; // Index from 0-8 for the board
 		board: (string | null)[][];
@@ -26,29 +27,36 @@
 		gameWinner: string | null; // New prop to track overall game winner
 		isLocalPlayerTurn?: boolean; // Added property to indicate if it's the local player's turn in online multiplayer
 		boardDisabled?: boolean; // New prop to disable cell interaction
+		isDraw?: boolean; // New prop to track if this board ended in a draw
 	}>();
+
+	// Detect if board is full (all cells filled) without a winner, which indicates a draw
+	const isDraw = $derived(!winner && board.flat().every((cell: null) => cell !== null));
 </script>
 
 <div
 	class="w-full h-full relative rounded-xl transition-all duration-300 ease-in-out aspect-square overflow-hidden p-0.5 md:p-1 bg-zinc-600"
 	class:!border-rose-500={winner === 'X'}
 	class:!border-sky-500={winner === 'O'}
-	class:!border-6={winner}
+	class:!border-zinc-700={isDraw}
+	class:!border-6={winner || isDraw}
 	class:red-tint={winner === 'X'}
 	class:blue-tint={winner === 'O'}
-	class:animate-ring-pulse={isActive && !winner && !gameWinner}
-	class:ring-white={isActive && !winner && !gameWinner}
-	class:opacity-50={winner}
+	class:gray-tint={isDraw}
+	class:animate-ring-pulse={isActive && !winner && !isDraw && !gameWinner}
+	class:ring-white={isActive && !winner && !isDraw && !gameWinner}
+	class:opacity-50={winner || isDraw}
 >
 	<div
 		class="w-full h-full grid grid-cols-3 grid-rows-3 gap-1 md:gap-1.5 p-0.5 relative overflow-hidden"
 		class:!red-tint={winner === 'X'}
 		class:!blue-tint={winner === 'O'}
+		class:!gray-tint={isDraw}
 	>
 		{#each Array(3) as _, row}
 			{#each Array(3) as _, col}
 				{@const cellIndex = row * 3 + col}
-				{@const cellClickable = isActive && !winner && !gameWinner && !boardDisabled}
+				{@const cellClickable = isActive && !winner && !isDraw && !gameWinner && !boardDisabled}
 				<Cell
 					{row}
 					{col}
@@ -86,5 +94,9 @@
 
 	.blue-tint {
 		background-color: rgba(59, 130, 246, 0.08) !important; /* blue-500 with opacity */
+	}
+
+	.gray-tint {
+		background-color: rgba(63, 63, 70, 0.2) !important; /* zinc-700 with opacity */
 	}
 </style>
