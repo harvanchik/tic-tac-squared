@@ -589,6 +589,20 @@
 
 		// Update the UI state
 		gameState = game.getState();
+
+		// If we just switched to CPU mode and it's the CPU's turn, make CPU move
+		if (
+			gameMode === 'human-vs-cpu' &&
+			gameState.currentPlayer === 'O' &&
+			!gameState.winner &&
+			!gameState.isDraw
+		) {
+			// Clear any existing timer since CPU doesn't use timers
+			clearTurnTimer();
+
+			// Start CPU turn with thinking animation
+			handleCpuTurn();
+		}
 	}
 
 	// Reset game
@@ -649,6 +663,17 @@
 
 		// Hide victory overlay
 		showVictoryOverlay = false;
+
+		// If we're in CPU mode and it's the CPU's turn (O), make CPU move
+		if (
+			gameMode === 'human-vs-cpu' &&
+			gameState.currentPlayer === 'O' &&
+			!gameState.winner &&
+			!gameState.isDraw
+		) {
+			// Start CPU turn with thinking animation
+			handleCpuTurn();
+		}
 	}
 
 	// Hide the victory overlay but keep the game state
@@ -673,6 +698,27 @@
 	$effect(() => {
 		if (isInitialized) {
 			saveGameSettings();
+		}
+	});
+
+	// Watch for game mode changes and trigger CPU moves if needed
+	$effect(() => {
+		// Only run this effect after initialization to avoid triggering on initial load
+		if (
+			isInitialized &&
+			gameMode === 'human-vs-cpu' &&
+			gameState.currentPlayer === 'O' &&
+			!gameState.winner &&
+			!gameState.isDraw &&
+			!isCpuThinking
+		) {
+			console.log(
+				"[BigBoard] Game mode changed to CPU mode and it's CPU turn, triggering CPU move"
+			);
+			// Clear any existing timer since CPU doesn't use timers
+			clearTurnTimer();
+			// Start CPU turn with thinking animation
+			handleCpuTurn();
 		}
 	});
 
