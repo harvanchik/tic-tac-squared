@@ -2,6 +2,7 @@
 	import SmallBoard from './SmallBoard.svelte';
 	import { createGameState, loadGameState, type GameState } from '../game/GameState';
 	import { OnlinePlayer, type ConnectionStatus } from '../game/OnlinePlayer';
+	import { soundEffects } from '../game/SoundEffects';
 	import { onMount } from 'svelte';
 	import Fa from 'svelte-fa';
 	import {
@@ -23,7 +24,9 @@
 		faAngleRight,
 		faRightFromBracket,
 		faClock,
-		faPause
+		faPause,
+		faVolumeHigh,
+		faVolumeXmark
 	} from '@fortawesome/free-solid-svg-icons';
 
 	// Constants for localStorage keys
@@ -33,6 +36,7 @@
 	const GAME_MODE_KEY = 'tic-tac-squared-game-mode';
 	const CPU_DIFFICULTY_KEY = 'tic-tac-squared-cpu-difficulty';
 	const GAME_RULES_KEY = 'tic-tac-squared-game-rules';
+	const SOUND_ENABLED_KEY = 'tic-tac-squared-sound-enabled';
 
 	// Create a default empty game state to avoid undefined errors during SSR
 	const createEmptyBoards = () => {
@@ -84,6 +88,7 @@
 	let gameMode = $state<'human-vs-human' | 'human-vs-cpu' | 'online-multiplayer'>('human-vs-human');
 	let gameRules = $state<'standard' | 'free-play'>('standard');
 	let cpuDifficulty = $state<'easy' | 'moderate' | 'expert'>('moderate');
+	let soundEnabled = $state(true);
 
 	// Online multiplayer state variables
 	let onlinePlayer: OnlinePlayer | null = $state(null);
@@ -143,6 +148,9 @@
 				// Save game rules
 				localStorage.setItem(GAME_RULES_KEY, gameRules);
 
+				// Save sound enabled setting
+				localStorage.setItem(SOUND_ENABLED_KEY, soundEnabled.toString());
+
 				console.log('[BigBoard] Game settings saved to localStorage');
 			} catch (error) {
 				console.error('Failed to save game settings:', error);
@@ -170,6 +178,12 @@
 				const savedGameRules = localStorage.getItem(GAME_RULES_KEY);
 				if (savedGameRules) {
 					gameRules = savedGameRules as 'standard' | 'free-play';
+				}
+
+				// Load sound enabled setting
+				const savedSoundEnabled = localStorage.getItem(SOUND_ENABLED_KEY);
+				if (savedSoundEnabled !== null) {
+					soundEnabled = savedSoundEnabled === 'true';
 				}
 
 				console.log('[BigBoard] Game settings loaded from localStorage');
@@ -226,11 +240,19 @@
 				// Check for victory
 				if (gameState.winner) {
 					showVictoryOverlay = true;
+					// Play victory sound if local player won
+					if (gameState.winner === onlinePlayer?.getLocalPlayer()) {
+						soundEffects.playVictorySound();
+					}
 				} else if (onlinePlayer?.isLocalPlayerTurn(gameState.currentPlayer)) {
-					// After receiving a remote move, if it's now the local player's turn, start the timer
+					// After receiving a remote move, if it's now the local player's turn, start the timer and play sound
 					console.log('[BigBoard] Starting timer after remote move');
 					// If this was the first move of the game, we need to force the timer to start now
 					startTurnTimer();
+					// Only play sound if this is not the very first move of the game
+					if (!wasFirstMove) {
+						soundEffects.playTurnNotification();
+					}
 				}
 			},
 			onRemoteSettings: (rules) => {
@@ -256,6 +278,7 @@
 					isFirstMove = true;
 					if (onlinePlayer.isLocalPlayerTurn(gameState.currentPlayer)) {
 						startTurnTimer();
+						// Don't play sound on the very first move of the game
 					}
 				}
 			},
@@ -550,6 +573,8 @@
 			// check if the game was just won
 			if (gameState.winner) {
 				showVictoryOverlay = true;
+				// Play victory sound
+				soundEffects.playVictorySound();
 				return;
 			}
 
@@ -559,8 +584,11 @@
 				if (wasFirstMove) {
 					console.log('[BigBoard] Starting timer after first move (for second player)');
 					startTurnTimer();
+					// Don't play sound on the very first move of the game
 				} else {
 					startTurnTimer();
+					// Play turn notification for the next player
+					soundEffects.playTurnNotification();
 				}
 			}
 		}
@@ -602,6 +630,22 @@
 
 			// Start CPU turn with thinking animation
 			handleCpuTurn();
+		} else if (
+			// If we switched to a mode where it's now the human player's turn, play notification
+			gameMode === 'human-vs-cpu' &&
+			gameState.currentPlayer === 'X' &&
+			!gameState.winner &&
+			!gameState.isDraw
+		) {
+			// Only play sound if this is not the very first move of a new game
+			if (gameState.lastMove !== null) {
+				soundEffects.playTurnNotification();
+			}
+		} else if (gameMode === 'human-vs-human' && !gameState.winner && !gameState.isDraw) {
+			// Only play sound if this is not the very first move of a new game
+			if (gameState.lastMove !== null) {
+				soundEffects.playTurnNotification();
+			}
 		}
 	}
 
@@ -673,6 +717,14 @@
 		) {
 			// Start CPU turn with thinking animation
 			handleCpuTurn();
+		} else if (
+			// Don't play sound on the very first move of a new game
+			(gameMode === 'human-vs-human' ||
+				(gameMode === 'human-vs-cpu' && gameState.currentPlayer === 'X')) &&
+			!gameState.winner &&
+			!gameState.isDraw
+		) {
+			// Don't play sound on the very first move of a new game
 		}
 	}
 
@@ -698,6 +750,13 @@
 	$effect(() => {
 		if (isInitialized) {
 			saveGameSettings();
+		}
+	});
+
+	// Watch for changes to sound setting and update the sound effects module
+	$effect(() => {
+		if (isInitialized) {
+			soundEffects.setEnabled(soundEnabled);
 		}
 	});
 
@@ -857,8 +916,9 @@
 				game.makeMove(-1, -1);
 				gameState = game.getState();
 
-				// Start the timer for the next player
+				// Start the timer for the next player and play turn notification
 				startTurnTimer();
+				soundEffects.playTurnNotification();
 			}
 
 			// Re-enable the board
@@ -888,9 +948,17 @@
 			// Check if CPU won with its move
 			if (gameState.winner) {
 				showVictoryOverlay = true;
+				// Play victory sound if CPU won (though this is unlikely to be what the user wants to hear!)
+				if (gameState.winner === 'O') {
+					// CPU won - no victory sound for the human player
+				} else {
+					// Human won - play victory sound
+					soundEffects.playVictorySound();
+				}
 			} else if (!gameState.isDraw) {
-				// Start timer for human player's turn
+				// Start timer for human player's turn and play notification sound
 				startTurnTimer();
+				soundEffects.playTurnNotification();
 			}
 
 			// Save the updated state
@@ -902,6 +970,9 @@
 	onMount(() => {
 		// Load saved game settings from localStorage
 		loadGameSettings();
+
+		// Initialize sound effects with the loaded setting
+		soundEffects.setEnabled(soundEnabled);
 
 		// Try to load saved game state from localStorage
 		const savedState = loadGameState();
@@ -958,6 +1029,11 @@
 			) {
 				// Start timer for the current player
 				startTurnTimer();
+				// Only play turn notification if this is not the very first move of a new game
+				// (we don't want to play sound immediately on page load)
+				if (gameState.lastMove !== null) {
+					soundEffects.playTurnNotification();
+				}
 			}
 		}
 
@@ -980,9 +1056,14 @@
 				// Check if CPU won with its move
 				if (gameState.winner) {
 					showVictoryOverlay = true;
+					// Only play victory sound if human won
+					if (gameState.winner === 'X') {
+						soundEffects.playVictorySound();
+					}
 				} else if (!gameState.isDraw) {
-					// Start timer for human player's turn
+					// Start timer for human player's turn and play notification sound
 					startTurnTimer();
+					soundEffects.playTurnNotification();
 				}
 			}, thinkingTime);
 		}
@@ -1143,40 +1224,53 @@
 	</div>
 
 	<!-- Game controls -->
-	<div class="flex gap-6 mt-4 w-full justify-center select-none">
+	<div class="flex mt-4 md:w-[90%] w-[80%] justify-between select-none">
 		<button
-			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+			class="w-10 h-10 md:px-6 md:py-2 md:w-auto md:h-auto bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center justify-center gap-1 md:gap-2 font-semibold cursor-pointer text-xs md:text-sm"
 			onclick={() => (showHowToPlayModal = true)}
+			title="How to Play"
 		>
-			<Fa icon={faCircleInfo} class="" />
-			How to Play
+			<Fa icon={faCircleInfo} class="text-sm md:text-base" />
+			<span class="hidden md:inline">How to Play</span>
 		</button>
 
 		<button
-			class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+			class="w-10 h-10 md:px-6 md:py-2 md:w-auto md:h-auto bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center justify-center gap-1 md:gap-2 font-semibold cursor-pointer text-xs md:text-sm"
 			onclick={() => (showSettingsModal = true)}
+			title="Settings"
 		>
-			<Fa icon={faGear} class="" />
-			Settings
+			<Fa icon={faGear} class="text-sm md:text-base" />
+			<span class="hidden md:inline">Settings</span>
 		</button>
 
 		{#if gameMode === 'online-multiplayer' && connectionStatus === 'connected'}
 			<button
-				class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+				class="w-10 h-10 md:px-6 md:py-2 md:w-auto md:h-auto bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center justify-center gap-1 md:gap-2 font-semibold cursor-pointer text-xs md:text-sm"
 				onclick={disconnectOnlineGame}
+				title="Leave Game"
 			>
-				<Fa icon={faRightFromBracket} class="text-rose-500/80" />
-				Leave Game
+				<Fa icon={faRightFromBracket} class="text-rose-500/80 text-sm md:text-base" />
+				<span class="hidden md:inline">Leave Game</span>
 			</button>
 		{:else}
 			<button
-				class="px-3 md:px-6 py-2 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center gap-2 font-semibold cursor-pointer md:text-md text-sm"
+				class="w-10 h-10 md:px-6 md:py-2 md:w-auto md:h-auto bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center justify-center gap-1 md:gap-2 font-semibold cursor-pointer text-xs md:text-sm"
 				onclick={resetGame}
+				title="New Game"
 			>
-				<Fa icon={faRotate} class="" />
-				New Game
+				<Fa icon={faRotate} class="text-sm md:text-base" />
+				<span class="hidden md:inline">New Game</span>
 			</button>
 		{/if}
+
+		<!-- Sound Toggle Button -->
+		<button
+			class="w-10 h-10 md:w-10 md:h-10 bg-zinc-800 outline-zinc-600 outline-2 hover:bg-zinc-600 text-white rounded-sm transition-colors flex items-center justify-center font-semibold cursor-pointer"
+			onclick={() => (soundEnabled = !soundEnabled)}
+			title={soundEnabled ? 'Sound On - Click to turn off' : 'Sound Off - Click to turn on'}
+		>
+			<Fa icon={soundEnabled ? faVolumeHigh : faVolumeXmark} class="text-sm md:text-base" />
+		</button>
 	</div>
 
 	<!-- Victory overlay - shown when a player wins -->
